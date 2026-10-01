@@ -16,5 +16,11 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        try {
+            val app = com.google.firebase.FirebaseApp.getInstance()
+            android.util.Log.d("HK_TEST", "Firebase OK, projectId=${app.options.projectId}")
+        } catch (e: Exception) {
+            android.util.Log.e("HK_TEST", "Firebase NOT linked", e)
+        }
     }
 }
