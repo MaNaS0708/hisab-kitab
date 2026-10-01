@@ -1,7 +1,18 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
     <style name="Base.Theme.HisabKitab" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">#8DD5C4</item>
+        <item name="colorOnPrimary">#00382D</item>
+        <item name="colorPrimaryContainer">#005143</item>
+        <item name="colorOnPrimaryContainer">#B6F0E2</item>
+        <item name="colorSecondary">#B7CCC5</item>
+        <item name="colorSurface">#101513</item>
+        <item name="colorOnSurface">#E0E3E1</item>
+        <item name="colorSurfaceVariant">#404944</item>
+        <item name="colorOnSurfaceVariant">#C0C9C3</item>
+        <item name="colorError">#FFB4AB</item>
+        <item name="colorOnError">#690005</item>
+        <item name="colorOutline">#8A938D</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
