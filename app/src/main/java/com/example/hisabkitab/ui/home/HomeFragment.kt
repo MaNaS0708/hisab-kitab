@@ -49,24 +49,22 @@ class HomeFragment : BaseAuthFragment() {
     private fun renderProfile(state: ProfileUiState?) {
         when (state) {
             null, ProfileUiState.Loading -> {
-                binding.profileShimmer.visibility = View.VISIBLE
-                binding.profileShimmer.startShimmer()
+                binding.profilePlaceholder.visibility = View.VISIBLE
                 binding.profileContent.visibility = View.GONE
                 binding.statusMessage.visibility = View.GONE
                 binding.retryButton.visibility = View.GONE
             }
             is ProfileUiState.Loaded -> {
-                binding.profileShimmer.stopShimmer()
-                binding.profileShimmer.visibility = View.GONE
+                binding.profilePlaceholder.visibility = View.GONE
                 binding.profileContent.visibility = View.VISIBLE
                 binding.greeting.text =
                     getString(R.string.home_greeting, state.profile.greetingName)
+                binding.userEmailSubtitle.text = state.profile.email?.takeIf { it.isNotBlank() } ?: "Signed in account"
                 binding.statusMessage.visibility = View.GONE
                 binding.retryButton.visibility = View.GONE
             }
             is ProfileUiState.Error -> {
-                binding.profileShimmer.stopShimmer()
-                binding.profileShimmer.visibility = View.GONE
+                binding.profilePlaceholder.visibility = View.GONE
                 binding.profileContent.visibility = View.GONE
                 binding.statusMessage.setTextColor(
                     requireContext().getColor(R.color.color_error)
@@ -80,7 +78,6 @@ class HomeFragment : BaseAuthFragment() {
     }
 
     override fun onDestroyView() {
-        binding.profileShimmer.stopShimmer()
         super.onDestroyView()
         _binding = null
     }

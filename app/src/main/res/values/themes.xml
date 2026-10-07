@@ -12,17 +12,22 @@
         <item name="colorError">@color/color_error</item>
         <item name="colorOnError">@color/color_on_error</item>
         <item name="colorOutline">@color/color_outline</item>
-        <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 
     <style name="Theme.HisabKitab" parent="Base.Theme.HisabKitab" />
+
     <style name="Theme.HisabKitab.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/color_surface</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.HisabKitab</item>
     </style>
+
     <style name="Widget.HisabKitab.OtpDigit" parent="@android:style/Widget.EditText">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">@dimen/otp_box_size</item>
@@ -36,6 +41,15 @@
         <item name="android:padding">0dp</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
         <item name="android:importantForAutofill">no</item>
+    </style>
+
+    <style name="Widget.HisabKitab.Card" parent="Widget.Material3.CardView.Outlined">
+        <item name="cardBackgroundColor">@color/color_card_background</item>
+        <item name="strokeColor">@color/color_outline</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardCornerRadius">@dimen/card_corner_radius</item>
+        <item name="cardElevation">0dp</item>
     </style>
 </resources>

@@ -27,10 +27,14 @@ class SplashFragment : BaseAuthFragment() {
         observeAuthState { state ->
             when (state) {
                 AuthUiState.Idle, is AuthUiState.Loading -> {
+                    binding.loadingSpinner.visibility = View.VISIBLE
+                    binding.loadingMessage.visibility = View.VISIBLE
                     binding.errorMessage.visibility = View.GONE
                     binding.retryButton.visibility = View.GONE
                 }
                 is AuthUiState.Error -> {
+                    binding.loadingSpinner.visibility = View.GONE
+                    binding.loadingMessage.visibility = View.GONE
                     binding.errorMessage.text = state.message
                     binding.errorMessage.visibility = View.VISIBLE
                     binding.retryButton.visibility =
