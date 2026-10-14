@@ -6,7 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisabkitab.R
 import com.example.hisabkitab.data.auth.AuthRepository
-import com.example.hisabkitab.data.user.UserProfile
+import com.example.hisabkitab.data.models.UserProfile
 import com.example.hisabkitab.data.user.UserRepository
 import com.example.hisabkitab.util.AuthErrorMapper
 import com.example.hisabkitab.util.NetworkMonitor
@@ -17,8 +17,8 @@ import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -41,7 +41,8 @@ enum class AuthAction {
     ResetPassword,
     PhoneRequest,
     VerifyOtp,
-    ResendOtp
+    ResendOtp,
+    SetUsername
 }
 
 sealed interface ProfileUiState {
@@ -53,6 +54,7 @@ sealed interface ProfileUiState {
 sealed interface AuthEvent {
     data object Login : AuthEvent
     data object VerifyEmail : AuthEvent
+    data object UsernameOnboarding : AuthEvent
     data object Home : AuthEvent
     data object Otp : AuthEvent
 }
@@ -100,16 +102,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             try {
-                val provider = providerFor(user)
-                userRepository.ensureUserDocument(user, user.displayName, provider)
-                _state.value = AuthUiState.Idle
-                val phoneUser = user.providerData.any { it.providerId == "phone" }
-                if (!phoneUser && !user.isEmailVerified) {
-                    _verificationEmail.value = user.email.orEmpty()
-                    eventChannel.send(AuthEvent.VerifyEmail)
-                } else {
-                    eventChannel.send(AuthEvent.Home)
-                }
+                routeUserAfterAuth(user, providerFor(user))
             } catch (exception: FirebaseException) {
                 setFailure(exception)
             } catch (exception: IOException) {
@@ -126,14 +119,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _state.value = AuthUiState.Loading(AuthAction.Login)
             try {
                 val user = authRepository.signIn(email, password)
-                userRepository.ensureUserDocument(user, user.displayName, "password")
-                _verificationEmail.value = user.email.orEmpty()
-                _state.value = AuthUiState.Idle
-                if (!user.isEmailVerified) {
-                    eventChannel.send(AuthEvent.VerifyEmail)
-                } else {
-                    eventChannel.send(AuthEvent.Home)
-                }
+                routeUserAfterAuth(user, "password")
             } catch (exception: FirebaseException) {
                 setFailure(exception)
             } catch (exception: IOException) {
@@ -160,20 +146,53 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     startEmailCooldown()
                 } catch (exception: FirebaseException) {
                     setFailure(exception)
-                    eventChannel.send(AuthEvent.VerifyEmail)
-                    return@launch
                 } catch (exception: IOException) {
                     setFailure(exception)
-                    eventChannel.send(AuthEvent.VerifyEmail)
-                    return@launch
                 }
+                val profile = userRepository.readProfile(user.uid)
                 _state.value = AuthUiState.Idle
-                eventChannel.send(AuthEvent.VerifyEmail)
+                if (profile.username.isNullOrBlank()) {
+                    eventChannel.send(AuthEvent.UsernameOnboarding)
+                } else {
+                    eventChannel.send(AuthEvent.VerifyEmail)
+                }
             } catch (exception: FirebaseException) {
                 setFailure(exception)
             } catch (exception: IOException) {
                 setFailure(exception)
             } catch (exception: IllegalStateException) {
+                setFailure(exception)
+            }
+        }
+    }
+
+    fun saveUsername(rawUsername: String, name: String?) {
+        viewModelScope.launch {
+            if (!requireNetwork()) return@launch
+            val user = authRepository.currentUser
+            if (user == null) {
+                _state.value = AuthUiState.Idle
+                eventChannel.send(AuthEvent.Login)
+                return@launch
+            }
+            _state.value = AuthUiState.Loading(AuthAction.SetUsername)
+            try {
+                userRepository.reserveUsernameAndSaveProfile(user, rawUsername, name)
+                _state.value = AuthUiState.Idle
+                val phoneUser = user.providerData.any { it.providerId == "phone" }
+                if (!phoneUser && !user.isEmailVerified) {
+                    _verificationEmail.value = user.email.orEmpty()
+                    eventChannel.send(AuthEvent.VerifyEmail)
+                } else {
+                    eventChannel.send(AuthEvent.Home)
+                }
+            } catch (exception: IllegalStateException) {
+                _state.value = AuthUiState.Error(
+                    exception.message ?: getString(R.string.username_taken)
+                )
+            } catch (exception: FirebaseException) {
+                setFailure(exception)
+            } catch (exception: IOException) {
                 setFailure(exception)
             }
         }
@@ -192,8 +211,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val refreshedUser = authRepository.reloadUser(user)
                 if (refreshedUser.isEmailVerified) {
+                    val profile = userRepository.readProfile(user.uid)
                     _state.value = AuthUiState.Idle
-                    eventChannel.send(AuthEvent.Home)
+                    if (profile.username.isNullOrBlank()) {
+                        eventChannel.send(AuthEvent.UsernameOnboarding)
+                    } else {
+                        eventChannel.send(AuthEvent.Home)
+                    }
                 } else {
                     _state.value = AuthUiState.Error(getString(R.string.verification_pending))
                 }
@@ -296,7 +320,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             try {
-                _profileState.value = ProfileUiState.Loaded(userRepository.readProfile(user))
+                _profileState.value = ProfileUiState.Loaded(userRepository.readProfile(user.uid))
             } catch (exception: FirebaseException) {
                 _profileState.value = ProfileUiState.Error(
                     errorMapper.message(exception),
@@ -324,6 +348,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetState() {
         _state.value = AuthUiState.Idle
+    }
+
+    private suspend fun routeUserAfterAuth(user: FirebaseUser, provider: String, name: String? = null) {
+        userRepository.ensureUserDocument(user, name ?: user.displayName, provider)
+        val profile = userRepository.readProfile(user.uid)
+        val phoneUser = user.providerData.any { it.providerId == "phone" }
+        _state.value = AuthUiState.Idle
+        when {
+            profile.username.isNullOrBlank() -> {
+                eventChannel.send(AuthEvent.UsernameOnboarding)
+            }
+            !phoneUser && !user.isEmailVerified -> {
+                _verificationEmail.value = user.email.orEmpty()
+                eventChannel.send(AuthEvent.VerifyEmail)
+            }
+            else -> {
+                eventChannel.send(AuthEvent.Home)
+            }
+        }
     }
 
     private fun requestPhoneVerification(
@@ -388,9 +431,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun completePhoneSignIn(credential: PhoneAuthCredential) {
         val user = authRepository.signInWithPhoneCredential(credential)
-        userRepository.ensureUserDocument(user, name = null, provider = "phone")
-        _state.value = AuthUiState.Idle
-        eventChannel.send(AuthEvent.Home)
+        routeUserAfterAuth(user, "phone")
     }
 
     private fun providerFor(user: FirebaseUser): String =

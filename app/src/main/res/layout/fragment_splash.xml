@@ -21,16 +21,13 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <TextView
-                android:layout_width="@dimen/brand_icon_size"
-                android:layout_height="@dimen/brand_icon_size"
-                android:background="@drawable/bg_brand_mark"
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:adjustViewBounds="true"
                 android:contentDescription="@string/content_description_brand"
-                android:gravity="center"
-                android:text="@string/brand_mark"
-                android:textColor="@color/color_on_primary"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_logo" />
 
             <TextView
                 android:layout_width="wrap_content"

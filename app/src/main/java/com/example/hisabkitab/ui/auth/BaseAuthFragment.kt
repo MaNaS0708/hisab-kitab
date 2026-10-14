@@ -30,13 +30,13 @@ abstract class BaseAuthFragment : Fragment() {
     protected fun bindStatus(
         state: AuthUiState,
         messageView: TextView,
-        retryButton: MaterialButton,
-        onRetry: () -> Unit
+        retryButton: MaterialButton? = null,
+        onRetry: () -> Unit = {}
     ) {
         when (state) {
             AuthUiState.Idle, is AuthUiState.Loading -> {
                 messageView.visibility = View.GONE
-                retryButton.visibility = View.GONE
+                retryButton?.visibility = View.GONE
             }
             is AuthUiState.Success -> {
                 val message = state.message
@@ -47,14 +47,14 @@ abstract class BaseAuthFragment : Fragment() {
                     messageView.text = message
                     messageView.visibility = View.VISIBLE
                 }
-                retryButton.visibility = View.GONE
+                retryButton?.visibility = View.GONE
             }
             is AuthUiState.Error -> {
                 messageView.setTextColor(requireContext().getColor(R.color.color_error))
                 messageView.text = state.message
                 messageView.visibility = View.VISIBLE
-                retryButton.visibility = if (state.retryable) View.VISIBLE else View.GONE
-                retryButton.setOnClickListener { onRetry() }
+                retryButton?.visibility = if (state.retryable) View.VISIBLE else View.GONE
+                retryButton?.setOnClickListener { onRetry() }
             }
         }
     }
@@ -81,6 +81,7 @@ abstract class BaseAuthFragment : Fragment() {
         val navController = findNavController()
         when (event) {
             AuthEvent.Login -> navController.navigate(R.id.action_global_login)
+            AuthEvent.UsernameOnboarding -> navController.navigate(R.id.action_global_username_onboarding)
             AuthEvent.VerifyEmail -> navController.navigate(R.id.action_global_verify_email)
             AuthEvent.Home -> navController.navigate(R.id.action_global_home)
             AuthEvent.Otp -> {
