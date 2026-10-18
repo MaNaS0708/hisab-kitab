@@ -28,11 +28,6 @@ class AuthErrorMapper(private val context: Context) {
                 R.string.error_email_in_use
             code.contains("WEAK_PASSWORD", ignoreCase = true) ->
                 R.string.error_weak_password
-            code.contains("INVALID_VERIFICATION_CODE", ignoreCase = true) ||
-                code.contains("SESSION_EXPIRED", ignoreCase = true) ->
-                R.string.error_invalid_otp
-            code.contains("INVALID_PHONE_NUMBER", ignoreCase = true) ->
-                R.string.error_phone_invalid
             code.contains("TOO_MANY_REQUESTS", ignoreCase = true) ->
                 R.string.error_too_many_requests
             else -> R.string.error_generic

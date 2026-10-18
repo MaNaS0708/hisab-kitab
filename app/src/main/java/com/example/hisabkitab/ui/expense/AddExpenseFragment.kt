@@ -275,15 +275,26 @@ class AddExpenseFragment : Fragment() {
         if (paidByPosition !in members.indices) return
         val paidByUid = members[paidByPosition].uid
 
+        val participantList = selectedParticipantUids.filter { it.isNotBlank() }.distinct()
+        if (participantList.isEmpty()) {
+            binding.statusMessage.text = getString(R.string.select_at_least_one_participant)
+            binding.statusMessage.visibility = View.VISIBLE
+            return
+        }
+
         val customSharesMap = mutableMapOf<String, Long>()
         if (currentSplitMode == "custom") {
-            for (uid in selectedParticipantUids) {
+            for (uid in participantList) {
                 val raw = customShareRawInputs[uid].orEmpty()
                 val parsed = CurrencyUtil.parseInrToPaise(raw) ?: 0L
                 customSharesMap[uid] = parsed
             }
 
-            val validation = SplitCalculator.validateCustomShares(totalPaise, customSharesMap)
+            val validation = SplitCalculator.validateCustomShares(
+                totalAmountPaise = totalPaise,
+                sharesByUid = customSharesMap,
+                participantUids = participantList
+            )
             if (validation is CustomSplitValidationResult.Invalid) {
                 binding.statusMessage.text = validation.message
                 binding.statusMessage.visibility = View.VISIBLE
@@ -297,7 +308,7 @@ class AddExpenseFragment : Fragment() {
             description = description,
             amountPaise = totalPaise,
             paidByUid = paidByUid,
-            participantIds = selectedParticipantUids.toList(),
+            participantIds = participantList,
             splitType = currentSplitMode,
             customSharesByUid = customSharesMap
         )

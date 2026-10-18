@@ -1,105 +1,124 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function group(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)); }
+    function isMember(groupId) {
+      return signedIn() && exists(/databases/$(database)/documents/groups/$(groupId)) &&
+        request.auth.uid in group(groupId).data.memberIds;
     }
-
-    function isUser(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
-    }
-
-    function isExistingMember(groupId) {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/groups/$(groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-    }
-
-    function isMemberAfterBatch(groupId) {
-      return isAuthenticated() &&
-        existsAfter(/databases/$(database)/documents/groups/$(groupId)) &&
+    function groupWillContainCaller(groupId) {
+      return signedIn() && existsAfter(/databases/$(database)/documents/groups/$(groupId)) &&
         request.auth.uid in getAfter(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
     }
-
-    function isGroupMember(groupId) {
-      return isExistingMember(groupId) || isMemberAfterBatch(groupId);
+    function validProfile() {
+      return request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email is string &&
+        request.resource.data.provider == 'password' &&
+        request.resource.data.keys().hasOnly([
+          'uid', 'name', 'email', 'provider', 'username',
+          'createdAt', 'updatedAt', 'lastLoginAt'
+        ]);
+    }
+    function validGroup() {
+      return request.resource.data.id is string &&
+        request.resource.data.name is string && request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 100 &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.auth.uid in request.resource.data.memberIds &&
+        request.resource.data.memberIds is list && request.resource.data.memberIds.size() >= 2 &&
+        request.resource.data.keys().hasOnly([
+          'id', 'name', 'createdBy', 'memberIds', 'createdAt', 'updatedAt'
+        ]);
     }
 
-    // Users Collection: User may read and write only their own profile
     match /users/{uid} {
-      allow read, write: if isUser(uid);
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && validProfile();
+      allow update: if isSelf(uid) && validProfile() &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.provider == resource.data.provider &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.email == resource.data.email &&
+        (('username' in resource.data && request.resource.data.username == resource.data.username) ||
+          (!('username' in resource.data) &&
+            (!('username' in request.resource.data) || request.resource.data.username is string)));
+      allow delete: if false;
     }
 
-    // Usernames Collection: For unique username lookup, immutable after creation
     match /usernames/{username} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
-                    request.resource.data.uid == request.auth.uid;
-      allow update, delete: false;
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid &&
+        username.matches('^[a-z0-9_]{3,20}$') &&
+        request.resource.data.keys().hasOnly(['uid', 'displayName', 'createdAt']);
+      allow update, delete: if false;
     }
 
-    // Groups Collection
     match /groups/{groupId} {
-      // Group creation: authenticated creator, createdBy is auth user, creator in memberIds
-      allow create: if isAuthenticated() &&
-                    request.resource.data.createdBy == request.auth.uid &&
-                    request.auth.uid in request.resource.data.memberIds;
+      allow create: if signedIn() && validGroup() && request.resource.data.id == groupId;
+      allow read: if isMember(groupId);
+      allow update: if isMember(groupId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']) &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.memberIds == resource.data.memberIds &&
+        request.resource.data.id == resource.data.id && request.resource.data.name == resource.data.name;
+      allow delete: if false;
 
-      // Group read: group members only
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
-
-      // Existing group root: deny arbitrary updates; only allow safe updatedAt touch by members
-      allow update: if isAuthenticated() &&
-                    request.auth.uid in resource.data.memberIds &&
-                    request.resource.data.createdBy == resource.data.createdBy &&
-                    request.resource.data.memberIds == resource.data.memberIds &&
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
-
-      allow delete: false;
-
-      // Members Subcollection: created during group creation batch
       match /members/{memberUid} {
-        allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId);
-        allow update, delete: false;
+        allow read: if isMember(groupId);
+        // Members can only be created in the atomic batch that creates the group.
+        allow create: if !exists(/databases/$(database)/documents/groups/$(groupId)) &&
+          groupWillContainCaller(groupId) && request.resource.data.uid == memberUid &&
+          request.resource.data.keys().hasOnly(['uid', 'username', 'displayName', 'joinedAt']);
+        allow update, delete: if false;
       }
 
-      // Expenses Subcollection
       match /expenses/{expenseId} {
-        allow read: if isExistingMember(groupId);
-        allow create: if isExistingMember(groupId) &&
-                      request.resource.data.createdByUid == request.auth.uid &&
-                      request.resource.data.amountPaise is int &&
-                      request.resource.data.amountPaise > 0 &&
-                      request.resource.data.paidByUid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds &&
-                      get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds.hasAll(request.resource.data.participantIds) &&
-                      request.resource.data.splitType in ['equal', 'custom'];
-        allow update, delete: false;
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId) && request.resource.data.id == expenseId &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          request.resource.data.description is string && request.resource.data.description.size() > 0 &&
+          request.resource.data.description.size() <= 200 &&
+          request.resource.data.amountPaise is int && request.resource.data.amountPaise > 0 &&
+          request.resource.data.paidByUid in group(groupId).data.memberIds &&
+          request.resource.data.participantIds is list && request.resource.data.participantIds.size() > 0 &&
+          group(groupId).data.memberIds.hasAll(request.resource.data.participantIds) &&
+          request.resource.data.splitType in ['equal', 'custom'] &&
+          request.resource.data.sharesByUid is map &&
+          request.resource.data.sharesByUid.keys().hasOnly(request.resource.data.participantIds) &&
+          request.resource.data.sharesByUid.keys().hasAll(request.resource.data.participantIds) &&
+          request.resource.data.keys().hasOnly([
+            'id', 'description', 'amountPaise', 'paidByUid', 'participantIds',
+            'splitType', 'sharesByUid', 'createdByUid', 'createdAt'
+          ]);
+        allow update, delete: if false;
       }
 
-      // Settlements Subcollection
       match /settlements/{settlementId} {
-        allow read: if isExistingMember(groupId);
-        allow create: if isExistingMember(groupId) &&
-                      request.resource.data.createdByUid == request.auth.uid &&
-                      request.resource.data.amountPaise is int &&
-                      request.resource.data.amountPaise > 0 &&
-                      request.resource.data.fromUid != request.resource.data.toUid &&
-                      request.resource.data.fromUid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds &&
-                      request.resource.data.toUid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-        allow update, delete: false;
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId) && request.resource.data.id == settlementId &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          request.resource.data.amountPaise is int && request.resource.data.amountPaise > 0 &&
+          request.resource.data.fromUid != request.resource.data.toUid &&
+          request.resource.data.fromUid in group(groupId).data.memberIds &&
+          request.resource.data.toUid in group(groupId).data.memberIds &&
+          request.resource.data.keys().hasOnly([
+            'id', 'fromUid', 'toUid', 'amountPaise', 'createdByUid', 'createdAt'
+          ]);
+        allow update, delete: if false;
       }
 
-      // Activity Subcollection
       match /activity/{activityId} {
-        allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) &&
-                      request.resource.data.actorUid == request.auth.uid;
-        allow update, delete: false;
+        allow read: if isMember(groupId) || groupWillContainCaller(groupId);
+        allow create: if groupWillContainCaller(groupId) &&
+          request.resource.data.id == activityId && request.resource.data.actorUid == request.auth.uid &&
+          request.resource.data.type in ['group_created', 'expense_added', 'settlement_added'] &&
+          request.resource.data.message is string && request.resource.data.message.size() > 0 &&
+          request.resource.data.message.size() <= 300 &&
+          request.resource.data.keys().hasOnly(['id', 'type', 'actorUid', 'message', 'createdAt']);
+        allow update, delete: if false;
       }
     }
   }
 }
-

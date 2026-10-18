@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Keep the mark inside Android's adaptive-icon safe zone. -->
+    <item
+        android:gravity="center"
+        android:left="24dp"
+        android:top="24dp"
+        android:right="24dp"
+        android:bottom="24dp">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/ic_logo" />
+    </item>
+</layer-list>

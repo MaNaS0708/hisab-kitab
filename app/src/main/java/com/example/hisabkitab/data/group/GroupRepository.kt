@@ -7,6 +7,8 @@ import com.example.hisabkitab.data.models.GroupMember
 import com.example.hisabkitab.data.models.Settlement
 import com.example.hisabkitab.data.models.UserProfile
 import com.example.hisabkitab.util.CurrencyUtil
+import com.example.hisabkitab.util.CustomSplitValidationResult
+import com.example.hisabkitab.util.SplitCalculator
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -14,21 +16,27 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-class GroupRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+open class GroupRepository(
+    private val firestore: FirebaseFirestore? = null
 ) {
-    suspend fun createGroup(
+    protected val db: FirebaseFirestore
+        get() = firestore ?: FirebaseFirestore.getInstance()
+
+    open suspend fun createGroup(
         groupName: String,
         creator: UserProfile,
         members: List<UserProfile>
     ): String {
-        require(groupName.isNotBlank()) { "Group name cannot be blank." }
+        require(groupName.trim().length in 1..100) { "Group name must be between 1 and 100 characters." }
+        require(creator.uid.isNotBlank()) { "Creator must be authenticated." }
         val allMembers = (members + creator).distinctBy { it.uid }
+        require(allMembers.all { it.uid.isNotBlank() }) { "Every group member must have an ID." }
+        require(allMembers.size >= 2) { "A group must have at least two members." }
 
-        val groupRef = firestore.collection("groups").document()
+        val groupRef = db.collection("groups").document()
         val groupId = groupRef.id
 
-        val batch = firestore.batch()
+        val batch = db.batch()
 
         batch.set(
             groupRef,
@@ -71,8 +79,8 @@ class GroupRepository(
         return groupId
     }
 
-    fun observeUserGroups(uid: String): Flow<List<Group>> = callbackFlow {
-        val query = firestore.collection("groups")
+    open fun observeUserGroups(uid: String): Flow<List<Group>> = callbackFlow {
+        val query = db.collection("groups")
             .whereArrayContains("memberIds", uid)
 
         val registration = query.addSnapshotListener { snapshot, error ->
@@ -102,8 +110,8 @@ class GroupRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observeGroupMembers(groupId: String): Flow<List<GroupMember>> = callbackFlow {
-        val registration = firestore.collection("groups")
+    open fun observeGroupMembers(groupId: String): Flow<List<GroupMember>> = callbackFlow {
+        val registration = db.collection("groups")
             .document(groupId)
             .collection("members")
             .addSnapshotListener { snapshot, error ->
@@ -129,8 +137,8 @@ class GroupRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observeGroupExpenses(groupId: String): Flow<List<Expense>> = callbackFlow {
-        val registration = firestore.collection("groups")
+    open fun observeGroupExpenses(groupId: String): Flow<List<Expense>> = callbackFlow {
+        val registration = db.collection("groups")
             .document(groupId)
             .collection("expenses")
             .addSnapshotListener { snapshot, error ->
@@ -147,8 +155,12 @@ class GroupRepository(
                         @Suppress("UNCHECKED_CAST")
                         val participantIds = (doc.get("participantIds") as? List<String>) ?: emptyList()
                         val splitType = doc.getString("splitType") ?: "equal"
-                        @Suppress("UNCHECKED_CAST")
-                        val sharesRaw = doc.get("sharesByUid") as? Map<String, Long> ?: emptyMap()
+                        val rawMap = doc.get("sharesByUid") as? Map<*, *>
+                        val sharesRaw = rawMap?.mapNotNull { (k, v) ->
+                            val key = k as? String ?: return@mapNotNull null
+                            val value = (v as? Number)?.toLong() ?: return@mapNotNull null
+                            key to value
+                        }?.toMap() ?: emptyMap()
                         val createdByUid = doc.getString("createdByUid") ?: ""
                         Expense(
                             id = id,
@@ -168,8 +180,8 @@ class GroupRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observeGroupSettlements(groupId: String): Flow<List<Settlement>> = callbackFlow {
-        val registration = firestore.collection("groups")
+    open fun observeGroupSettlements(groupId: String): Flow<List<Settlement>> = callbackFlow {
+        val registration = db.collection("groups")
             .document(groupId)
             .collection("settlements")
             .addSnapshotListener { snapshot, error ->
@@ -199,8 +211,8 @@ class GroupRepository(
         awaitClose { registration.remove() }
     }
 
-    fun observeGroupActivity(groupId: String): Flow<List<GroupActivity>> = callbackFlow {
-        val registration = firestore.collection("groups")
+    open fun observeGroupActivity(groupId: String): Flow<List<GroupActivity>> = callbackFlow {
+        val registration = db.collection("groups")
             .document(groupId)
             .collection("activity")
             .addSnapshotListener { snapshot, error ->
@@ -228,8 +240,8 @@ class GroupRepository(
         awaitClose { registration.remove() }
     }
 
-    suspend fun getGroupExpensesOnce(groupId: String): List<Expense> {
-        val snapshot = firestore.collection("groups")
+    open suspend fun getGroupExpensesOnce(groupId: String): List<Expense> {
+        val snapshot = db.collection("groups")
             .document(groupId)
             .collection("expenses")
             .get()
@@ -243,8 +255,12 @@ class GroupRepository(
             @Suppress("UNCHECKED_CAST")
             val participantIds = (doc.get("participantIds") as? List<String>) ?: emptyList()
             val splitType = doc.getString("splitType") ?: "equal"
-            @Suppress("UNCHECKED_CAST")
-            val sharesRaw = doc.get("sharesByUid") as? Map<String, Long> ?: emptyMap()
+            val rawMap = doc.get("sharesByUid") as? Map<*, *>
+            val sharesRaw = rawMap?.mapNotNull { (k, v) ->
+                val key = k as? String ?: return@mapNotNull null
+                val value = (v as? Number)?.toLong() ?: return@mapNotNull null
+                key to value
+            }?.toMap() ?: emptyMap()
             val createdByUid = doc.getString("createdByUid") ?: ""
             Expense(
                 id = id,
@@ -260,8 +276,8 @@ class GroupRepository(
         }
     }
 
-    suspend fun getGroupSettlementsOnce(groupId: String): List<Settlement> {
-        val snapshot = firestore.collection("groups")
+    open suspend fun getGroupSettlementsOnce(groupId: String): List<Settlement> {
+        val snapshot = db.collection("groups")
             .document(groupId)
             .collection("settlements")
             .get()
@@ -284,19 +300,48 @@ class GroupRepository(
         }
     }
 
-    suspend fun addExpense(
+    open suspend fun addExpense(
         groupId: String,
         expense: Expense,
         actorName: String
     ) {
-        val groupRef = firestore.collection("groups").document(groupId)
+        require(groupId.isNotBlank()) { "Group ID cannot be blank." }
+        val distinctParticipants = expense.participantIds.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        require(distinctParticipants.isNotEmpty()) { "Participant list cannot be empty." }
+        require(expense.description.isNotBlank()) { "Description cannot be blank." }
+        require(expense.amountPaise > 0) { "Amount must be greater than zero." }
+        require(expense.paidByUid.isNotBlank()) { "Payer is required." }
+        require(expense.createdByUid.isNotBlank()) { "Expense creator is required." }
+        require(expense.splitType == "equal" || expense.splitType == "custom") {
+            "Unsupported split type."
+        }
+
+        val shares = if (expense.splitType == "custom") {
+            val validation = SplitCalculator.validateCustomShares(
+                totalAmountPaise = expense.amountPaise,
+                sharesByUid = expense.sharesByUid,
+                participantUids = distinctParticipants
+            )
+            require(validation is CustomSplitValidationResult.Valid) {
+                (validation as CustomSplitValidationResult.Invalid).message
+            }
+            expense.sharesByUid
+        } else {
+            SplitCalculator.calculateEqualShares(expense.amountPaise, distinctParticipants)
+        }
+
+        val groupRef = db.collection("groups").document(groupId)
         val expenseRef = groupRef.collection("expenses").document()
         val activityRef = groupRef.collection("activity").document()
 
         val expenseId = expenseRef.id
-        val finalExpense = expense.copy(id = expenseId)
+        val finalExpense = expense.copy(
+            id = expenseId,
+            participantIds = distinctParticipants,
+            sharesByUid = shares
+        )
 
-        val batch = firestore.batch()
+        val batch = db.batch()
         batch.set(
             expenseRef,
             mapOf(
@@ -328,20 +373,29 @@ class GroupRepository(
         batch.commit().await()
     }
 
-    suspend fun addSettlement(
+    open suspend fun addSettlement(
         groupId: String,
         settlement: Settlement,
         fromName: String,
         toName: String
     ) {
-        val groupRef = firestore.collection("groups").document(groupId)
+        require(groupId.isNotBlank()) { "Group ID cannot be blank." }
+        require(settlement.fromUid.isNotBlank() && settlement.toUid.isNotBlank()) {
+            "Settlement parties are required."
+        }
+        require(settlement.fromUid != settlement.toUid) {
+            "Payer and recipient cannot be the same person."
+        }
+        require(settlement.amountPaise > 0) { "Amount must be greater than zero." }
+        require(settlement.createdByUid.isNotBlank()) { "Settlement creator is required." }
+        val groupRef = db.collection("groups").document(groupId)
         val settlementRef = groupRef.collection("settlements").document()
         val activityRef = groupRef.collection("activity").document()
 
         val settlementId = settlementRef.id
         val finalSettlement = settlement.copy(id = settlementId)
 
-        val batch = firestore.batch()
+        val batch = db.batch()
         batch.set(
             settlementRef,
             mapOf(

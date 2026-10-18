@@ -1,5 +1,7 @@
 package com.example.hisabkitab.util
 
+import com.example.hisabkitab.data.models.Expense
+
 object SplitCalculator {
     fun calculateEqualShares(
         totalAmountPaise: Long,
@@ -7,9 +9,12 @@ object SplitCalculator {
     ): Map<String, Long> {
         require(totalAmountPaise > 0) { "Total amount must be greater than zero." }
         require(participantUids.isNotEmpty()) { "Participant list cannot be empty." }
+        require(participantUids.none { it.isBlank() }) { "Participant list cannot contain blank IDs." }
 
-        // Sort UIDs deterministically
+        // Sort distinct UIDs deterministically
         val sortedUids = participantUids.distinct().sorted()
+        require(sortedUids.isNotEmpty()) { "Participant list cannot be empty." }
+
         val count = sortedUids.size
         val baseShare = totalAmountPaise / count
         val remainder = (totalAmountPaise % count).toInt()
@@ -26,7 +31,8 @@ object SplitCalculator {
 
     fun validateCustomShares(
         totalAmountPaise: Long,
-        sharesByUid: Map<String, Long>
+        sharesByUid: Map<String, Long>,
+        participantUids: List<String>? = null
     ): CustomSplitValidationResult {
         if (totalAmountPaise <= 0) {
             return CustomSplitValidationResult.Invalid("Total amount must be greater than zero.")
@@ -34,8 +40,26 @@ object SplitCalculator {
         if (sharesByUid.isEmpty()) {
             return CustomSplitValidationResult.Invalid("Select at least one participant.")
         }
+        if (sharesByUid.keys.any { it.isBlank() }) {
+            return CustomSplitValidationResult.Invalid("Participant ID cannot be empty.")
+        }
+        if (participantUids != null) {
+            if (participantUids.any { it.isBlank() }) {
+                return CustomSplitValidationResult.Invalid("Participant list cannot contain empty IDs.")
+            }
+            val distinctParticipants = participantUids.distinct()
+            if (participantUids.size != distinctParticipants.size) {
+                return CustomSplitValidationResult.Invalid("Participant list contains duplicate entries.")
+            }
+            if (sharesByUid.keys != distinctParticipants.toSet()) {
+                return CustomSplitValidationResult.Invalid("Shares do not match the selected participants.")
+            }
+        }
         if (sharesByUid.values.any { it < 0 }) {
             return CustomSplitValidationResult.Invalid("Shares cannot be negative.")
+        }
+        if (sharesByUid.values.all { it == 0L }) {
+            return CustomSplitValidationResult.Invalid("At least one participant must have a positive share.")
         }
         val currentSum = sharesByUid.values.sum()
         if (currentSum != totalAmountPaise) {
@@ -47,10 +71,38 @@ object SplitCalculator {
                 CustomSplitValidationResult.Invalid("Sum of shares exceeds total by $diffFormatted.")
             }
         }
-        if (sharesByUid.values.all { it == 0L }) {
-            return CustomSplitValidationResult.Invalid("At least one participant must have a positive share.")
-        }
         return CustomSplitValidationResult.Valid
+    }
+
+    fun isValidExpense(expense: Expense): Boolean {
+        if (expense.amountPaise <= 0L) return false
+        if (expense.paidByUid.isBlank()) return false
+        if (expense.description.isBlank()) return false
+        if (expense.participantIds.isEmpty()) return false
+        if (expense.participantIds.any { it.isBlank() }) return false
+        if (expense.participantIds.size != expense.participantIds.distinct().size) return false
+
+        val participantSet = expense.participantIds.toSet()
+
+        return when (expense.splitType) {
+            "custom" -> {
+                if (expense.sharesByUid.isEmpty()) return false
+                if (expense.sharesByUid.keys != participantSet) return false
+                if (expense.sharesByUid.values.any { it < 0L }) return false
+                if (expense.sharesByUid.values.all { it == 0L }) return false
+                expense.sharesByUid.values.sum() == expense.amountPaise
+            }
+            "equal" -> {
+                if (expense.sharesByUid.isNotEmpty()) {
+                    if (expense.sharesByUid.keys != participantSet) return false
+                    if (expense.sharesByUid.values.any { it < 0L }) return false
+                    expense.sharesByUid.values.sum() == expense.amountPaise
+                } else {
+                    true
+                }
+            }
+            else -> false
+        }
     }
 }
 

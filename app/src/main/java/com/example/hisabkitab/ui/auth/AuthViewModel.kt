@@ -1,6 +1,5 @@
 package com.example.hisabkitab.ui.auth
 
-import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,11 +11,10 @@ import com.example.hisabkitab.util.AuthErrorMapper
 import com.example.hisabkitab.util.NetworkMonitor
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseNetworkException
-import com.google.firebase.auth.PhoneAuthCredential
-import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,9 +37,6 @@ enum class AuthAction {
     VerifyEmail,
     ResendEmail,
     ResetPassword,
-    PhoneRequest,
-    VerifyOtp,
-    ResendOtp,
     SetUsername
 }
 
@@ -56,7 +51,6 @@ sealed interface AuthEvent {
     data object VerifyEmail : AuthEvent
     data object UsernameOnboarding : AuthEvent
     data object Home : AuthEvent
-    data object Otp : AuthEvent
 }
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -77,20 +71,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _verificationEmail = MutableStateFlow("")
     val verificationEmail = _verificationEmail.asStateFlow()
 
-    private val _phoneNumber = MutableStateFlow("")
-    val phoneNumber = _phoneNumber.asStateFlow()
-
     private val _emailCooldown = MutableStateFlow(0)
     val emailCooldown = _emailCooldown.asStateFlow()
 
-    private val _otpCooldown = MutableStateFlow(0)
-    val otpCooldown = _otpCooldown.asStateFlow()
-
-    private var verificationId: String? = null
-    private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
-    private var phoneSignInStarted = false
     private var emailCooldownJob: Job? = null
-    private var otpCooldownJob: Job? = null
 
     fun resolveAuthGate() {
         viewModelScope.launch {
@@ -102,12 +86,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             try {
-                routeUserAfterAuth(user, providerFor(user))
-            } catch (exception: FirebaseException) {
-                setFailure(exception)
-            } catch (exception: IOException) {
-                setFailure(exception)
-            } catch (exception: IllegalStateException) {
+                routeUserAfterAuth(user)
+            } catch (exception: Exception) {
+                if (exception is CancellationException) throw exception
                 setFailure(exception)
             }
         }
@@ -119,12 +100,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _state.value = AuthUiState.Loading(AuthAction.Login)
             try {
                 val user = authRepository.signIn(email, password)
-                routeUserAfterAuth(user, "password")
-            } catch (exception: FirebaseException) {
-                setFailure(exception)
-            } catch (exception: IOException) {
-                setFailure(exception)
-            } catch (exception: IllegalStateException) {
+                routeUserAfterAuth(user)
+            } catch (exception: Exception) {
+                if (exception is CancellationException) throw exception
                 setFailure(exception)
             }
         }
@@ -139,7 +117,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     ?.takeIf { it.email.equals(email, ignoreCase = true) }
                 val user = existingUser ?: authRepository.createAccount(email, password)
                 authRepository.setDisplayName(user, name)
-                userRepository.ensureUserDocument(user, name, "password")
+                userRepository.ensureUserDocument(user, name)
                 _verificationEmail.value = user.email.orEmpty()
                 try {
                     authRepository.sendEmailVerification(user)
@@ -156,11 +134,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     eventChannel.send(AuthEvent.VerifyEmail)
                 }
-            } catch (exception: FirebaseException) {
-                setFailure(exception)
-            } catch (exception: IOException) {
-                setFailure(exception)
-            } catch (exception: IllegalStateException) {
+            } catch (exception: Exception) {
+                if (exception is CancellationException) throw exception
                 setFailure(exception)
             }
         }
@@ -179,8 +154,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 userRepository.reserveUsernameAndSaveProfile(user, rawUsername, name)
                 _state.value = AuthUiState.Idle
-                val phoneUser = user.providerData.any { it.providerId == "phone" }
-                if (!phoneUser && !user.isEmailVerified) {
+                if (!user.isEmailVerified) {
                     _verificationEmail.value = user.email.orEmpty()
                     eventChannel.send(AuthEvent.VerifyEmail)
                 } else {
@@ -267,45 +241,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun beginPhoneVerification(activity: Activity, phone: String) {
-        _phoneNumber.value = phone
-        phoneSignInStarted = false
-        requestPhoneVerification(activity, phone, null, navigateToOtp = true)
-    }
-
-    fun resendOtp(activity: Activity) {
-        val phone = _phoneNumber.value
-        if (phone.isBlank() || _otpCooldown.value > 0) return
-        phoneSignInStarted = false
-        requestPhoneVerification(activity, phone, resendToken, navigateToOtp = false)
-    }
-
-    fun verifyOtp(code: String) {
-        if (phoneSignInStarted) return
-        val id = verificationId
-        if (id == null) {
-            _state.value = AuthUiState.Error(getString(R.string.error_invalid_otp))
-            return
-        }
-        viewModelScope.launch {
-            if (!requireNetwork()) return@launch
-            phoneSignInStarted = true
-            _state.value = AuthUiState.Loading(AuthAction.VerifyOtp)
-            try {
-                completePhoneSignIn(PhoneAuthProvider.getCredential(id, code))
-            } catch (exception: FirebaseException) {
-                phoneSignInStarted = false
-                setFailure(exception)
-            } catch (exception: IOException) {
-                phoneSignInStarted = false
-                setFailure(exception)
-            } catch (exception: IllegalStateException) {
-                phoneSignInStarted = false
-                setFailure(exception)
-            }
-        }
-    }
-
     fun loadProfile() {
         viewModelScope.launch {
             val user = authRepository.currentUser
@@ -350,16 +285,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = AuthUiState.Idle
     }
 
-    private suspend fun routeUserAfterAuth(user: FirebaseUser, provider: String, name: String? = null) {
-        userRepository.ensureUserDocument(user, name ?: user.displayName, provider)
+    private suspend fun routeUserAfterAuth(user: FirebaseUser, name: String? = null) {
+        userRepository.ensureUserDocument(user, name ?: user.displayName)
         val profile = userRepository.readProfile(user.uid)
-        val phoneUser = user.providerData.any { it.providerId == "phone" }
         _state.value = AuthUiState.Idle
         when {
             profile.username.isNullOrBlank() -> {
                 eventChannel.send(AuthEvent.UsernameOnboarding)
             }
-            !phoneUser && !user.isEmailVerified -> {
+            !user.isEmailVerified -> {
                 _verificationEmail.value = user.email.orEmpty()
                 eventChannel.send(AuthEvent.VerifyEmail)
             }
@@ -369,82 +303,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun requestPhoneVerification(
-        activity: Activity,
-        phone: String,
-        token: PhoneAuthProvider.ForceResendingToken?,
-        navigateToOtp: Boolean
-    ) {
-        if (!requireNetwork()) return
-        _state.value = AuthUiState.Loading(
-            if (navigateToOtp) AuthAction.PhoneRequest else AuthAction.ResendOtp
-        )
-        val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                if (phoneSignInStarted) return
-                phoneSignInStarted = true
-                viewModelScope.launch {
-                    _state.value = AuthUiState.Loading(AuthAction.VerifyOtp)
-                    try {
-                        completePhoneSignIn(credential)
-                    } catch (exception: FirebaseException) {
-                        phoneSignInStarted = false
-                        setFailure(exception)
-                    } catch (exception: IOException) {
-                        phoneSignInStarted = false
-                        setFailure(exception)
-                    } catch (exception: IllegalStateException) {
-                        phoneSignInStarted = false
-                        setFailure(exception)
-                    }
-                }
-            }
-
-            override fun onVerificationFailed(exception: FirebaseException) {
-                phoneSignInStarted = false
-                _state.value = AuthUiState.Error(
-                    errorMapper.message(exception),
-                    retryable = isNetworkFailure(exception)
-                )
-            }
-
-            override fun onCodeSent(
-                id: String,
-                token: PhoneAuthProvider.ForceResendingToken
-            ) {
-                if (phoneSignInStarted) return
-                verificationId = id
-                resendToken = token
-                _state.value = AuthUiState.Success(getString(R.string.otp_sent))
-                startOtpCooldown()
-                if (navigateToOtp) {
-                    eventChannel.trySend(AuthEvent.Otp)
-                }
-            }
-        }
-        try {
-            authRepository.verifyPhoneNumber(activity, phone, callbacks, token)
-        } catch (exception: FirebaseException) {
-            setFailure(exception)
-        }
-    }
-
-    private suspend fun completePhoneSignIn(credential: PhoneAuthCredential) {
-        val user = authRepository.signInWithPhoneCredential(credential)
-        routeUserAfterAuth(user, "phone")
-    }
-
-    private fun providerFor(user: FirebaseUser): String =
-        if (user.providerData.any { it.providerId == "phone" }) "phone" else "password"
-
     private fun startEmailCooldown() {
         emailCooldownJob?.cancel()
         emailCooldownJob = startCooldown(_emailCooldown, 60)
-    }
-
-    private fun startOtpCooldown() {
-        otpCooldownJob?.cancel()
-        otpCooldownJob = startCooldown(_otpCooldown, 30)
     }
 
     private fun startCooldown(flow: MutableStateFlow<Int>, seconds: Int): Job =

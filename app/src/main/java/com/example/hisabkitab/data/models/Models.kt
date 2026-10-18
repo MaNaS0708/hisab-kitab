@@ -8,7 +8,6 @@ data class UserProfile(
     val username: String? = null,
     val name: String? = null,
     val email: String? = null,
-    val phone: String? = null,
     val provider: String = "password",
     @ServerTimestamp val createdAt: Date? = null,
     @ServerTimestamp val updatedAt: Date? = null,
@@ -17,11 +16,10 @@ data class UserProfile(
     val greetingName: String
         get() = name?.takeIf(String::isNotBlank)
             ?: username?.let { "@$it" }
-            ?: phone?.takeIf(String::isNotBlank)
             ?: email.orEmpty()
 
     val displayHandle: String
-        get() = username?.let { "@$it" } ?: email ?: phone.orEmpty()
+        get() = username?.let { "@$it" } ?: email.orEmpty()
 }
 
 data class Group(

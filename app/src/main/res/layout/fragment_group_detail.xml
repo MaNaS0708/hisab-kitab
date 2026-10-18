@@ -20,15 +20,17 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/back_button"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/back_arrow" />
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/back_arrow"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconTint="?attr/colorOnSurface" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/space_sm"
+                android:layout_marginStart="@dimen/space_xs"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
@@ -36,14 +38,18 @@
                     android:id="@+id/group_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_grotesk"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.02" />
 
                 <TextView
                     android:id="@+id/user_group_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="@font/space_grotesk"
                     android:textSize="13sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -61,16 +67,18 @@
                 android:layout_height="@dimen/button_height"
                 android:layout_marginEnd="@dimen/space_xs"
                 android:layout_weight="1"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/add_expense"
                 app:cornerRadius="@dimen/control_corner_radius" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/settle_up_button"
-                style="@style/Widget.Material3.Button.TonalButton"
+                style="@style/Widget.HisabKitab.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="@dimen/button_height"
                 android:layout_marginStart="@dimen/space_xs"
                 android:layout_weight="1"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/settle_up"
                 app:cornerRadius="@dimen/control_corner_radius" />
         </LinearLayout>
@@ -104,21 +112,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="@dimen/space_lg">
+                android:padding="@dimen/space_md">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/group_members_header"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.03" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/members_recycler"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_sm"
+                    android:layout_marginTop="@dimen/space_xs"
                     android:nestedScrollingEnabled="false" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -127,21 +137,23 @@
             style="@style/Widget.HisabKitab.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_lg">
+            android:layout_marginTop="@dimen/space_md">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="@dimen/space_lg">
+                android:padding="@dimen/space_md">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/activity_ledger_header"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.03" />
 
                 <TextView
                     android:id="@+id/empty_activity_view"

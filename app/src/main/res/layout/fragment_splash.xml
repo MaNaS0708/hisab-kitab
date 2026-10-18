@@ -22,8 +22,8 @@
             app:layout_constraintTop_toTopOf="parent">
 
             <ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 android:adjustViewBounds="true"
                 android:contentDescription="@string/content_description_brand"
                 android:scaleType="fitCenter"
@@ -33,15 +33,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_lg"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/app_name"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="26sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:letterSpacing="-0.02" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_xs"
+                android:fontFamily="@font/inter"
                 android:text="@string/brand_tagline"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp" />

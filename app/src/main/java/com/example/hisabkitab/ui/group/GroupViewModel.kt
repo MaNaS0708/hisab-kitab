@@ -16,6 +16,8 @@ import com.example.hisabkitab.util.BalanceCalculator
 import com.example.hisabkitab.util.CustomSplitValidationResult
 import com.example.hisabkitab.util.SplitCalculator
 import com.example.hisabkitab.util.UsernameUtil
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,10 +65,16 @@ sealed interface OperationState {
     data class Error(val message: String) : OperationState
 }
 
-class GroupViewModel(application: Application) : AndroidViewModel(application) {
-    private val authRepository = AuthRepository()
-    private val userRepository = UserRepository()
-    private val groupRepository = GroupRepository()
+open class GroupViewModel(
+    application: Application,
+    private val authRepository: AuthRepository = AuthRepository(),
+    private val userRepository: UserRepository = UserRepository(),
+    private val groupRepository: GroupRepository = GroupRepository()
+) : AndroidViewModel(application) {
+
+    private var homeLoadJob: Job? = null
+    private var groupDetailJob: Job? = null
+    private var activeDetailGroupId: String? = null
 
     private val _homeState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val homeState: StateFlow<HomeUiState> = _homeState.asStateFlow()
@@ -81,17 +89,40 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
         _operationState.value = OperationState.Idle
     }
 
+    fun stopObservingGroupDetails() {
+        groupDetailJob?.cancel()
+        groupDetailJob = null
+        activeDetailGroupId = null
+    }
+
+    fun clearGroupDetails() {
+        stopObservingGroupDetails()
+        _detailState.value = GroupDetailUiState.Loading
+    }
+
+    fun resetViewModelState() {
+        homeLoadJob?.cancel()
+        homeLoadJob = null
+        stopObservingGroupDetails()
+        _homeState.value = HomeUiState.Loading
+        _detailState.value = GroupDetailUiState.Loading
+        _operationState.value = OperationState.Idle
+    }
+
     fun loadHomeData() {
-        viewModelScope.launch {
-            val firebaseUser = authRepository.currentUser
-            if (firebaseUser == null) {
+        homeLoadJob?.cancel()
+        stopObservingGroupDetails()
+
+        _homeState.value = HomeUiState.Loading
+        homeLoadJob = viewModelScope.launch {
+            val currentUid = authRepository.currentUid
+            if (currentUid == null) {
                 _homeState.value = HomeUiState.Error("User not authenticated.", retryable = false)
                 return@launch
             }
 
-            _homeState.value = HomeUiState.Loading
             try {
-                val profile = userRepository.readProfile(firebaseUser.uid)
+                val profile = userRepository.readProfile(currentUid)
 
                 groupRepository.observeUserGroups(profile.uid).collect { groups ->
                     val groupWithBalances = mutableListOf<GroupWithBalance>()
@@ -100,7 +131,8 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                     for (group in groups) {
                         val expenses = groupRepository.getGroupExpensesOnce(group.id)
                         val settlements = groupRepository.getGroupSettlementsOnce(group.id)
-                        val balanceMap = BalanceCalculator.calculateGroupBalances(expenses, settlements)
+                        val validExpenses = expenses.filter { SplitCalculator.isValidExpense(it) }
+                        val balanceMap = BalanceCalculator.calculateGroupBalances(validExpenses, settlements)
 
                         allGroupBalances.add(balanceMap)
                         val userNet = balanceMap.getOrDefault(profile.uid, 0L)
@@ -117,6 +149,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _homeState.value = HomeUiState.Error(
                     e.message ?: "Failed to load groups.",
                     retryable = true
@@ -125,17 +158,35 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadGroupDetails(groupId: String) {
-        viewModelScope.launch {
-            val firebaseUser = authRepository.currentUser
-            if (firebaseUser == null) {
-                _detailState.value = GroupDetailUiState.Error("User not authenticated.")
+    fun loadGroupDetails(groupId: String, forceReload: Boolean = false) {
+        if (groupId.isBlank()) {
+            _detailState.value = GroupDetailUiState.Error("Invalid group ID.")
+            return
+        }
+
+        // Avoid duplicate collector setup if already observing this active group in a non-error state (e.g. Add Expense or Settle Up)
+        if (!forceReload && activeDetailGroupId == groupId && groupDetailJob?.isActive == true && _detailState.value !is GroupDetailUiState.Error) {
+            return
+        }
+
+        homeLoadJob?.cancel()
+        homeLoadJob = null
+
+        groupDetailJob?.cancel()
+        activeDetailGroupId = groupId
+        _detailState.value = GroupDetailUiState.Loading
+
+        groupDetailJob = viewModelScope.launch {
+            val currentUid = authRepository.currentUid
+            if (currentUid == null) {
+                if (activeDetailGroupId == groupId) {
+                    _detailState.value = GroupDetailUiState.Error("User not authenticated.")
+                }
                 return@launch
             }
 
-            _detailState.value = GroupDetailUiState.Loading
             try {
-                val groupsFlow = groupRepository.observeUserGroups(firebaseUser.uid)
+                val groupsFlow = groupRepository.observeUserGroups(currentUid)
                 val membersFlow = groupRepository.observeGroupMembers(groupId)
                 val expensesFlow = groupRepository.observeGroupExpenses(groupId)
                 val settlementsFlow = groupRepository.observeGroupSettlements(groupId)
@@ -151,7 +202,8 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                     val group = groups.find { it.id == groupId }
                         ?: return@combine GroupDetailUiState.Error("Group not found or access revoked.")
 
-                    val balancesMap = BalanceCalculator.calculateGroupBalances(expenses, settlements)
+                    val validExpenses = expenses.filter { SplitCalculator.isValidExpense(it) }
+                    val balancesMap = BalanceCalculator.calculateGroupBalances(validExpenses, settlements)
 
                     val membersWithBalance = members.map { member ->
                         MemberWithBalance(
@@ -160,21 +212,26 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
 
-                    val userNet = balancesMap.getOrDefault(firebaseUser.uid, 0L)
+                    val userNet = balancesMap.getOrDefault(currentUid, 0L)
 
                     GroupDetailUiState.Content(
                         group = group,
                         membersWithBalance = membersWithBalance,
-                        expenses = expenses,
+                        expenses = validExpenses,
                         settlements = settlements,
                         activities = activities,
                         userNetBalancePaise = userNet
                     )
                 }.collect { state ->
-                    _detailState.value = state
+                    if (activeDetailGroupId == groupId) {
+                        _detailState.value = state
+                    }
                 }
             } catch (e: Exception) {
-                _detailState.value = GroupDetailUiState.Error(e.message ?: "Error loading group.")
+                if (e is CancellationException) throw e
+                if (activeDetailGroupId == groupId) {
+                    _detailState.value = GroupDetailUiState.Error(e.message ?: "Error loading group.")
+                }
             }
         }
     }
@@ -187,7 +244,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createGroup(groupName: String, memberUsernames: List<String>) {
         viewModelScope.launch {
-            val firebaseUser = authRepository.currentUser ?: return@launch
+            val currentUid = authRepository.currentUid ?: return@launch
             if (groupName.isBlank()) {
                 _operationState.value = OperationState.Error("Group name is required.")
                 return@launch
@@ -195,7 +252,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
 
             _operationState.value = OperationState.Loading
             try {
-                val creator = userRepository.readProfile(firebaseUser.uid)
+                val creator = userRepository.readProfile(currentUid)
                 val memberProfiles = mutableListOf<UserProfile>()
 
                 for (username in memberUsernames.distinct()) {
@@ -214,6 +271,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 val groupId = groupRepository.createGroup(groupName, creator, distinctProfiles)
                 _operationState.value = OperationState.Success(resultId = groupId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _operationState.value = OperationState.Error(e.message ?: "Failed to create group.")
             }
         }
@@ -229,47 +287,66 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
         customSharesByUid: Map<String, Long>
     ) {
         viewModelScope.launch {
-            val firebaseUser = authRepository.currentUser ?: return@launch
-            if (description.isBlank()) {
+            val currentUid = authRepository.currentUid ?: return@launch
+            val trimmedDesc = description.trim()
+            if (trimmedDesc.isBlank()) {
                 _operationState.value = OperationState.Error("Description is required.")
+                return@launch
+            }
+            if (trimmedDesc.length > 200) {
+                _operationState.value = OperationState.Error("Description must be 200 characters or fewer.")
                 return@launch
             }
             if (amountPaise <= 0) {
                 _operationState.value = OperationState.Error("Amount must be greater than zero.")
                 return@launch
             }
-            if (participantIds.isEmpty()) {
+
+            val distinctParticipants = participantIds.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            if (distinctParticipants.isEmpty()) {
                 _operationState.value = OperationState.Error("Select at least one participant.")
                 return@launch
             }
 
-            val shares = if (splitType == "custom") {
-                val validation = SplitCalculator.validateCustomShares(amountPaise, customSharesByUid)
-                if (validation is CustomSplitValidationResult.Invalid) {
-                    _operationState.value = OperationState.Error(validation.message)
+            val shares = when (splitType) {
+                "custom" -> {
+                    val validation = SplitCalculator.validateCustomShares(
+                        totalAmountPaise = amountPaise,
+                        sharesByUid = customSharesByUid,
+                        participantUids = distinctParticipants
+                    )
+                    if (validation is CustomSplitValidationResult.Invalid) {
+                        _operationState.value = OperationState.Error(validation.message)
+                        return@launch
+                    }
+                    customSharesByUid
+                }
+                "equal" -> {
+                    SplitCalculator.calculateEqualShares(amountPaise, distinctParticipants)
+                }
+                else -> {
+                    _operationState.value = OperationState.Error("Unsupported split type.")
                     return@launch
                 }
-                customSharesByUid
-            } else {
-                SplitCalculator.calculateEqualShares(amountPaise, participantIds)
             }
 
             _operationState.value = OperationState.Loading
             try {
-                val actorProfile = userRepository.readProfile(firebaseUser.uid)
+                val actorProfile = userRepository.readProfile(currentUid)
                 val expense = Expense(
-                    description = description.trim(),
+                    description = trimmedDesc,
                     amountPaise = amountPaise,
                     paidByUid = paidByUid,
-                    participantIds = participantIds,
+                    participantIds = distinctParticipants,
                     splitType = splitType,
                     sharesByUid = shares,
-                    createdByUid = firebaseUser.uid
+                    createdByUid = currentUid
                 )
 
                 groupRepository.addExpense(groupId, expense, actorProfile.greetingName)
                 _operationState.value = OperationState.Success(message = "Expense added successfully.")
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _operationState.value = OperationState.Error(e.message ?: "Failed to add expense.")
             }
         }
@@ -284,7 +361,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
         toName: String
     ) {
         viewModelScope.launch {
-            val firebaseUser = authRepository.currentUser ?: return@launch
+            val currentUid = authRepository.currentUid ?: return@launch
             if (fromUid == toUid) {
                 _operationState.value = OperationState.Error("Payer and recipient cannot be the same person.")
                 return@launch
@@ -300,14 +377,21 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                     fromUid = fromUid,
                     toUid = toUid,
                     amountPaise = amountPaise,
-                    createdByUid = firebaseUser.uid
+                    createdByUid = currentUid
                 )
 
                 groupRepository.addSettlement(groupId, settlement, fromName, toName)
                 _operationState.value = OperationState.Success(message = "Settlement recorded.")
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _operationState.value = OperationState.Error(e.message ?: "Failed to record settlement.")
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        homeLoadJob?.cancel()
+        stopObservingGroupDetails()
     }
 }

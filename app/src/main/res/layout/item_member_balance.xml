@@ -16,14 +16,18 @@
             android:id="@+id/member_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/space_grotesk"
             android:textColor="?attr/colorOnSurface"
             android:textSize="15sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:letterSpacing="-0.01" />
 
         <TextView
             android:id="@+id/member_handle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:fontFamily="@font/inter"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="12sp" />
     </LinearLayout>
@@ -32,6 +36,7 @@
         android:id="@+id/member_net_balance"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:fontFamily="@font/space_grotesk"
         android:textSize="14sp"
         android:textStyle="bold" />
 </LinearLayout>

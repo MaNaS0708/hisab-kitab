@@ -17,7 +17,7 @@
             android:orientation="vertical"
             android:padding="@dimen/screen_padding">
 
-            <!-- Top Header Bar -->
+            <!-- Compact Top Header Bar -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -25,8 +25,8 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:adjustViewBounds="true"
                     android:contentDescription="@string/content_description_brand"
                     android:scaleType="fitCenter"
@@ -35,68 +35,54 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/space_md"
+                    android:layout_marginStart="@dimen/space_sm"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <TextView
                         android:id="@+id/brand_title"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_grotesk"
                         android:text="@string/app_name"
-                        android:textColor="@color/color_primary"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.02" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/brand_tagline"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="12sp" />
+                        android:layout_marginStart="@dimen/space_sm"
+                        android:background="@drawable/bg_pill_tag"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="2dp"
+                        android:fontFamily="@font/space_grotesk"
+                        android:text="LEDGER"
+                        android:textColor="@color/color_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_pill_tag"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="4dp"
-                    android:text="Ledger"
-                    android:textColor="@color/color_primary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
+                <!-- Discreet Account / Logout Action -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/logout_button"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/logout"
+                    app:icon="@drawable/ic_logout"
+                    app:iconTint="?attr/colorOnSurfaceVariant" />
+
+                <ProgressBar
+                    android:id="@+id/logout_loading"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:indeterminateTint="@color/color_primary"
+                    android:visibility="gone" />
             </LinearLayout>
-
-            <!-- Loading Profile Placeholder -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/profile_placeholder"
-                style="@style/Widget.HisabKitab.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_lg">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="@dimen/space_lg">
-
-                    <ProgressBar
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:indeterminateTint="@color/color_primary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/space_md"
-                        android:text="@string/loading_profile"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
 
             <!-- Main User Profile Card -->
             <com.google.android.material.card.MaterialCardView
@@ -112,25 +98,28 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="@dimen/space_lg">
+                    android:padding="@dimen/space_md">
 
                     <TextView
                         android:id="@+id/greeting"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_grotesk"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="22sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
+                        android:letterSpacing="-0.02"
                         tools:text="Welcome, Alex" />
 
                     <TextView
                         android:id="@+id/user_email_subtitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/space_xs"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/inter"
                         android:text="@string/signed_in_account"
                         android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         tools:text="alex@example.com" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -139,82 +128,101 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xl"
+                android:layout_marginTop="@dimen/space_lg"
+                android:fontFamily="@font/space_grotesk"
                 android:text="Overview"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05" />
 
-            <LinearLayout
+            <!-- Unified Minimal Balance Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.HisabKitab.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_md"
-                android:orientation="horizontal">
+                android:layout_marginTop="@dimen/space_sm">
 
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.HisabKitab.Card"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="@dimen/space_sm"
-                    android:layout_weight="1">
+                    android:baselineAligned="false"
+                    android:orientation="horizontal"
+                    android:paddingVertical="@dimen/space_md">
 
+                    <!-- You are owed -->
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
                         android:orientation="vertical"
-                        android:padding="@dimen/space_md">
+                        android:paddingHorizontal="@dimen/space_sm">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter"
                             android:text="@string/you_are_owed"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="12sp" />
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textAllCaps="true"
+                            android:letterSpacing="0.04" />
 
                         <TextView
                             android:id="@+id/total_owed_amount"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_xs"
-                            android:textColor="@color/color_primary"
-                            android:textSize="18sp"
+                            android:fontFamily="@font/space_grotesk"
+                            android:textColor="@color/color_positive"
+                            android:textSize="22sp"
                             android:textStyle="bold"
+                            android:letterSpacing="-0.02"
                             tools:text="₹ 0.00" />
                     </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.HisabKitab.Card"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/space_sm"
-                    android:layout_weight="1">
+                    <!-- Subtle 1dp Divider -->
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:background="@color/color_outline" />
 
+                    <!-- You owe -->
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
                         android:orientation="vertical"
-                        android:padding="@dimen/space_md">
+                        android:paddingHorizontal="@dimen/space_sm">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter"
                             android:text="@string/you_owe"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="12sp" />
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textAllCaps="true"
+                            android:letterSpacing="0.04" />
 
                         <TextView
                             android:id="@+id/total_owes_amount"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/space_xs"
+                            android:fontFamily="@font/space_grotesk"
                             android:textColor="@color/color_error"
-                            android:textSize="18sp"
+                            android:textSize="22sp"
                             android:textStyle="bold"
+                            android:letterSpacing="-0.02"
                             tools:text="₹ 0.00" />
                     </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Error & Retry Views -->
             <LinearLayout
@@ -254,10 +262,12 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/your_groups"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/create_group_button"
@@ -293,7 +303,7 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- Empty Groups State -->
+            <!-- Empty Groups State (No emoji, restrained, calm typography) -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/empty_groups_view"
                 style="@style/Widget.HisabKitab.Card"
@@ -312,19 +322,23 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_grotesk"
                         android:text="@string/no_groups_title"
                         android:textColor="?attr/colorOnSurface"
                         android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.01" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/space_xs"
+                        android:fontFamily="@font/inter"
                         android:gravity="center"
                         android:text="@string/no_groups_subtitle"
                         android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp" />
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="2dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/create_first_group_button"
@@ -344,42 +358,10 @@
                 android:id="@+id/groups_recycler"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_md"
-                android:nestedScrollingEnabled="false" />
-
-            <!-- Bottom Logout Section -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xxl"
-                android:layout_marginBottom="72dp"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/logout_button"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/button_height"
-                        android:text="@string/logout"
-                        android:textColor="@color/color_error"
-                        app:cornerRadius="@dimen/control_corner_radius"
-                        app:strokeColor="@color/color_error" />
-
-                    <ProgressBar
-                        android:id="@+id/logout_loading"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="@dimen/space_md"
-                        android:indeterminateTint="@color/color_error"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </LinearLayout>
+                android:layout_marginTop="@dimen/space_sm"
+                android:nestedScrollingEnabled="false"
+                android:paddingBottom="88dp"
+                android:clipToPadding="false" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -389,12 +371,15 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_margin="20dp"
         android:backgroundTint="@color/color_primary"
         android:contentDescription="@string/create_group"
+        android:fontFamily="@font/space_grotesk"
         android:text="@string/create_group"
         android:textColor="@color/color_on_primary"
-        app:icon="@android:drawable/ic_input_add"
+        app:cornerRadius="@dimen/control_corner_radius"
+        app:elevation="2dp"
+        app:icon="@drawable/ic_add"
         app:iconTint="@color/color_on_primary" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

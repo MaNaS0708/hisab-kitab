@@ -88,7 +88,9 @@ class BalanceCalculatorTest {
             // Blank payer
             Expense(id = "e3", description = "Blank payer", amountPaise = 10000L, paidByUid = "", participantIds = listOf("alice", "bob")),
             // Empty participants
-            Expense(id = "e4", description = "No participants", amountPaise = 10000L, paidByUid = "alice", participantIds = emptyList())
+            Expense(id = "e4", description = "No participants", amountPaise = 10000L, paidByUid = "alice", participantIds = emptyList()),
+            // Blank description
+            Expense(id = "e5", description = "   ", amountPaise = 10000L, paidByUid = "alice", participantIds = listOf("alice", "bob"))
         )
 
         val invalidSettlements = listOf(
@@ -106,6 +108,104 @@ class BalanceCalculatorTest {
 
         val balances = BalanceCalculator.calculateGroupBalances(invalidExpenses, invalidSettlements)
         assertTrue(balances.isEmpty())
+    }
+
+    @Test
+    fun testMalformedCustomSplitExpensesDoNotAffectBalances() {
+        val malformedCustomExpenses = listOf(
+            // 1. Shares do not add up to amountPaise (40000 + 5000 = 45000 != 50000)
+            Expense(
+                id = "m1",
+                description = "Sum mismatch",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 40000L, "bob" to 5000L)
+            ),
+            // 2. Negative share fabricating credit/debt
+            Expense(
+                id = "m2",
+                description = "Negative share",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 60000L, "bob" to -10000L)
+            ),
+            // 3. Key/participant mismatch (shares contains non-participant "intruder")
+            Expense(
+                id = "m3",
+                description = "Key mismatch non-participant",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 25000L, "intruder" to 25000L)
+            ),
+            // 4. Missing participant from custom shares
+            Expense(
+                id = "m4",
+                description = "Missing participant key",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 50000L)
+            ),
+            // 5. Zero-only shares
+            Expense(
+                id = "m5",
+                description = "All zero shares",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 0L, "bob" to 0L)
+            ),
+            // 6. Duplicate participant IDs
+            Expense(
+                id = "m6",
+                description = "Duplicate participants",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "alice"),
+                splitType = "custom",
+                sharesByUid = mapOf("alice" to 50000L)
+            ),
+            // 7. Empty shares map for custom split
+            Expense(
+                id = "m7",
+                description = "Empty shares map",
+                amountPaise = 50000L,
+                paidByUid = "alice",
+                participantIds = listOf("alice", "bob"),
+                splitType = "custom",
+                sharesByUid = emptyMap()
+            )
+        )
+
+        // All malformed custom expenses alone should result in empty balances
+        val balancesFromMalformed = BalanceCalculator.calculateGroupBalances(malformedCustomExpenses, emptyList())
+        assertTrue(balancesFromMalformed.isEmpty())
+
+        // When mixed with a legitimate expense, only the legitimate expense affects balances
+        val validExpense = Expense(
+            id = "valid1",
+            description = "Valid Lunch",
+            amountPaise = 3000L,
+            paidByUid = "alice",
+            participantIds = listOf("alice", "bob"),
+            splitType = "equal",
+            sharesByUid = mapOf("alice" to 1500L, "bob" to 1500L)
+        )
+
+        val mixedBalances = BalanceCalculator.calculateGroupBalances(
+            malformedCustomExpenses + validExpense,
+            emptyList()
+        )
+        assertEquals(1500L, mixedBalances["alice"])
+        assertEquals(-1500L, mixedBalances["bob"])
     }
 
     @Test

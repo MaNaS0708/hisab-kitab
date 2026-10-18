@@ -23,16 +23,15 @@ object BalanceCalculator {
         val balances = mutableMapOf<String, Long>()
 
         for (expense in expenses) {
-            if (expense.amountPaise <= 0) continue
-            if (expense.paidByUid.isBlank()) continue
+            if (!SplitCalculator.isValidExpense(expense)) continue
 
             // Participants get debited their shares
-            val effectiveShares = if (expense.splitType == "custom" && expense.sharesByUid.isNotEmpty()) {
+            val effectiveShares = if (expense.splitType == "custom") {
                 expense.sharesByUid
-            } else if (expense.participantIds.isNotEmpty()) {
-                SplitCalculator.calculateEqualShares(expense.amountPaise, expense.participantIds)
+            } else if (expense.sharesByUid.isNotEmpty()) {
+                expense.sharesByUid
             } else {
-                continue
+                SplitCalculator.calculateEqualShares(expense.amountPaise, expense.participantIds)
             }
 
             // Payer gets credited full amount

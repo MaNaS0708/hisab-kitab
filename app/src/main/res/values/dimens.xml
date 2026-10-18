@@ -6,11 +6,11 @@
     <dimen name="space_xl">32dp</dimen>
     <dimen name="space_xxl">48dp</dimen>
     <dimen name="screen_padding">20dp</dimen>
-    <dimen name="control_corner_radius">12dp</dimen>
-    <dimen name="card_corner_radius">16dp</dimen>
+    <dimen name="control_corner_radius">8dp</dimen>
+    <dimen name="card_corner_radius">8dp</dimen>
     <dimen name="pill_corner_radius">999dp</dimen>
-    <dimen name="control_height">56dp</dimen>
-    <dimen name="button_height">54dp</dimen>
+    <dimen name="control_height">52dp</dimen>
+    <dimen name="button_height">48dp</dimen>
     <dimen name="otp_box_size">50dp</dimen>
     <dimen name="brand_icon_size">56dp</dimen>
     <dimen name="otp_digit_gap">6dp</dimen>

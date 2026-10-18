@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 12+ masks splash icons; this margin prevents corner clipping. -->
+    <item
+        android:gravity="center"
+        android:left="28dp"
+        android:top="28dp"
+        android:right="28dp"
+        android:bottom="28dp">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/ic_logo" />
+    </item>
+</layer-list>

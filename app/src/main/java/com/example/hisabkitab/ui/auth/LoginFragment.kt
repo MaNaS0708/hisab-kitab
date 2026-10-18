@@ -46,10 +46,6 @@ class LoginFragment : BaseAuthFragment() {
             authViewModel.resetState()
             findNavController().navigate(R.id.action_login_to_signup)
         }
-        binding.continueWithPhoneButton.setOnClickListener {
-            authViewModel.resetState()
-            findNavController().navigate(R.id.action_login_to_phone)
-        }
         binding.retryButton.setOnClickListener { submitLogin() }
         observeAuthState { state ->
             bindProgress(

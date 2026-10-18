@@ -22,18 +22,22 @@
                 android:id="@+id/back_button"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/cancel" />
+                android:layout_height="@dimen/button_height"
+                android:fontFamily="@font/space_grotesk"
+                android:text="@string/cancel"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/create_group_title"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:letterSpacing="-0.02" />
 
             <View
                 android:layout_width="48dp"
@@ -77,6 +81,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_lg"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/add_members_label"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp"

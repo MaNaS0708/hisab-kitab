@@ -6,26 +6,28 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
-class UserRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+open class UserRepository(
+    private val firestore: FirebaseFirestore? = null
 ) {
+    protected val db: FirebaseFirestore
+        get() = firestore ?: FirebaseFirestore.getInstance()
+
     suspend fun ensureUserDocument(
         user: FirebaseUser,
-        name: String?,
-        provider: String
+        name: String?
     ): UserProfile {
-        val document = firestore.collection("users").document(user.uid)
-        firestore.runTransaction { transaction ->
+        val document = db.collection("users").document(user.uid)
+        db.runTransaction { transaction ->
             val snapshot = transaction.get(document)
             if (!snapshot.exists()) {
                 val initialData = mutableMapOf<String, Any?>(
                     "uid" to user.uid,
-                    "name" to if (provider == "phone") null else name,
-                    "email" to if (provider == "phone") null else user.email,
-                    "phone" to user.phoneNumber,
-                    "provider" to provider,
+                    "name" to name,
+                    "email" to user.email,
+                    "provider" to "password",
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp(),
                     "lastLoginAt" to FieldValue.serverTimestamp()
@@ -38,9 +40,6 @@ class UserRepository(
                 )
                 if (snapshot.getString("email").isNullOrBlank() && user.email != null) {
                     updates["email"] = user.email
-                }
-                if (snapshot.getString("phone").isNullOrBlank() && user.phoneNumber != null) {
-                    updates["phone"] = user.phoneNumber
                 }
                 if (snapshot.getString("name").isNullOrBlank() && !name.isNullOrBlank()) {
                     updates["name"] = name
@@ -62,10 +61,10 @@ class UserRepository(
             error("Invalid username format.")
         }
 
-        val usernameDoc = firestore.collection("usernames").document(normalized)
-        val userDoc = firestore.collection("users").document(user.uid)
+        val usernameDoc = db.collection("usernames").document(normalized)
+        val userDoc = db.collection("users").document(user.uid)
 
-        firestore.runTransaction { transaction ->
+        db.runTransaction { transaction ->
             val uSnap = transaction.get(usernameDoc)
             if (uSnap.exists()) {
                 val existingUid = uSnap.getString("uid")
@@ -87,8 +86,7 @@ class UserRepository(
                 "uid" to user.uid,
                 "username" to normalized,
                 "email" to (user.email ?: transaction.get(userDoc).getString("email")),
-                "phone" to (user.phoneNumber ?: transaction.get(userDoc).getString("phone")),
-                "provider" to (if (user.phoneNumber != null) "phone" else "password"),
+                "provider" to "password",
                 "updatedAt" to FieldValue.serverTimestamp()
             )
             if (!name.isNullOrBlank()) {
@@ -102,12 +100,12 @@ class UserRepository(
         return readProfile(user.uid)
     }
 
-    suspend fun readProfile(user: FirebaseUser): UserProfile {
+    open suspend fun readProfile(user: FirebaseUser): UserProfile {
         return readProfile(user.uid)
     }
 
-    suspend fun readProfile(uid: String): UserProfile {
-        val snapshot = firestore.collection("users").document(uid).get().await()
+    open suspend fun readProfile(uid: String): UserProfile {
+        val snapshot = db.collection("users").document(uid).get().await()
         if (!snapshot.exists()) {
             error("User profile not found.")
         }
@@ -117,7 +115,6 @@ class UserRepository(
             username = snapshot.getString("username"),
             name = snapshot.getString("name"),
             email = snapshot.getString("email"),
-            phone = snapshot.getString("phone"),
             provider = provider,
             createdAt = snapshot.getDate("createdAt"),
             updatedAt = snapshot.getDate("updatedAt"),
@@ -125,25 +122,24 @@ class UserRepository(
         )
     }
 
-    suspend fun findUserByUsername(rawUsername: String): UserProfile? {
+    open suspend fun findUserByUsername(rawUsername: String): UserProfile? {
         val normalized = UsernameUtil.normalize(rawUsername)
         if (!UsernameUtil.isValid(normalized)) return null
 
-        val usernameDoc = firestore.collection("usernames").document(normalized).get().await()
+        val usernameDoc = db.collection("usernames").document(normalized).get().await()
         if (!usernameDoc.exists()) return null
 
         val targetUid = usernameDoc.getString("uid") ?: return null
         val docDisplayName = usernameDoc.getString("displayName")
 
         return try {
-            val userDoc = firestore.collection("users").document(targetUid).get().await()
+            val userDoc = db.collection("users").document(targetUid).get().await()
             if (userDoc.exists()) {
                 UserProfile(
                     uid = targetUid,
                     username = normalized,
                     name = userDoc.getString("name") ?: docDisplayName,
                     email = userDoc.getString("email"),
-                    phone = userDoc.getString("phone"),
                     provider = userDoc.getString("provider") ?: "password"
                 )
             } else {
@@ -153,7 +149,8 @@ class UserRepository(
                     name = docDisplayName
                 )
             }
-        } catch (_: Exception) {
+        } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
             UserProfile(
                 uid = targetUid,
                 username = normalized,

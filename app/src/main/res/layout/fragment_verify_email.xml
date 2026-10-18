@@ -36,19 +36,23 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_md"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/verify_email_title"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="28sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:letterSpacing="-0.03" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_xs"
+                android:fontFamily="@font/inter"
                 android:gravity="center"
                 android:text="@string/verify_email_subtitle"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="15sp" />
+                android:textSize="15sp"
+                android:lineSpacingExtra="2dp" />
 
             <!-- Email Card Container -->
             <com.google.android.material.card.MaterialCardView

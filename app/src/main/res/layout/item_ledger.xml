@@ -9,14 +9,17 @@
         android:id="@+id/activity_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:fontFamily="@font/inter"
         android:textColor="?attr/colorOnSurface"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        android:lineSpacingExtra="1dp" />
 
     <TextView
         android:id="@+id/activity_timestamp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
+        android:fontFamily="@font/inter"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="11sp" />
+        android:textSize="12sp" />
 </LinearLayout>

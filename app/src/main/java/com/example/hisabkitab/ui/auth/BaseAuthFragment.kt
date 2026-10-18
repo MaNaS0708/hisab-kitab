@@ -84,11 +84,6 @@ abstract class BaseAuthFragment : Fragment() {
             AuthEvent.UsernameOnboarding -> navController.navigate(R.id.action_global_username_onboarding)
             AuthEvent.VerifyEmail -> navController.navigate(R.id.action_global_verify_email)
             AuthEvent.Home -> navController.navigate(R.id.action_global_home)
-            AuthEvent.Otp -> {
-                if (navController.currentDestination?.id == R.id.phoneFragment) {
-                    navController.navigate(R.id.action_phone_to_otp)
-                }
-            }
         }
     }
 }

@@ -70,7 +70,6 @@ class HomeFragment : BaseAuthFragment() {
     private fun renderHomeState(state: HomeUiState) {
         when (state) {
             HomeUiState.Loading -> {
-                binding.profilePlaceholder.visibility = View.VISIBLE
                 binding.profileContent.visibility = View.GONE
                 binding.groupsLoadingIndicator.visibility = View.VISIBLE
                 binding.errorLayout.visibility = View.GONE
@@ -80,7 +79,6 @@ class HomeFragment : BaseAuthFragment() {
                 binding.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(0L)
             }
             is HomeUiState.Content -> {
-                binding.profilePlaceholder.visibility = View.GONE
                 binding.profileContent.visibility = View.VISIBLE
                 binding.greeting.text =
                     getString(R.string.home_greeting, state.profile.greetingName)
@@ -108,7 +106,6 @@ class HomeFragment : BaseAuthFragment() {
                 }
             }
             is HomeUiState.Error -> {
-                binding.profilePlaceholder.visibility = View.GONE
                 binding.profileContent.visibility = View.GONE
                 binding.groupsLoadingIndicator.visibility = View.GONE
                 binding.emptyGroupsView.visibility = View.GONE

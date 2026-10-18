@@ -22,18 +22,22 @@
                 android:id="@+id/back_button"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/cancel" />
+                android:layout_height="@dimen/button_height"
+                android:fontFamily="@font/space_grotesk"
+                android:text="@string/cancel"
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center"
+                android:fontFamily="@font/space_grotesk"
                 android:text="@string/add_expense"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:letterSpacing="-0.02" />
 
             <View
                 android:layout_width="48dp"
@@ -52,11 +56,39 @@
                 android:orientation="vertical"
                 android:padding="@dimen/space_lg">
 
+                <!-- Amount Entry as Visual Focus -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/amount_layout"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/amount_label"
+                    app:boxCornerRadiusBottomEnd="@dimen/control_corner_radius"
+                    app:boxCornerRadiusBottomStart="@dimen/control_corner_radius"
+                    app:boxCornerRadiusTopEnd="@dimen/control_corner_radius"
+                    app:boxCornerRadiusTopStart="@dimen/control_corner_radius"
+                    app:prefixText="₹ "
+                    app:prefixTextAppearance="@style/TextAppearance.HisabKitab.TitleLarge">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/amount_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_grotesk"
+                        android:hint="@string/amount_hint"
+                        android:imeOptions="actionNext"
+                        android:inputType="numberDecimal"
+                        android:maxLines="1"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </com.google.android.material.textfield.TextInputLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/description_layout"
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_md"
                     android:hint="@string/description_label"
                     app:boxCornerRadiusBottomEnd="@dimen/control_corner_radius"
                     app:boxCornerRadiusBottomStart="@dimen/control_corner_radius"
@@ -67,32 +99,10 @@
                         android:id="@+id/description_input"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/inter"
                         android:hint="@string/description_hint"
                         android:imeOptions="actionNext"
                         android:inputType="textCapSentences"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/amount_layout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_md"
-                    android:hint="@string/amount_label"
-                    app:boxCornerRadiusBottomEnd="@dimen/control_corner_radius"
-                    app:boxCornerRadiusBottomStart="@dimen/control_corner_radius"
-                    app:boxCornerRadiusTopEnd="@dimen/control_corner_radius"
-                    app:boxCornerRadiusTopStart="@dimen/control_corner_radius"
-                    app:prefixText="₹ ">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/amount_input"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/amount_hint"
-                        android:imeOptions="actionNext"
-                        android:inputType="numberDecimal"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -100,6 +110,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_md"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/paid_by"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp"
@@ -117,6 +128,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_md"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/participants"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp"
@@ -133,6 +145,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_lg"
+                    android:fontFamily="@font/space_grotesk"
                     android:text="@string/split_mode"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp"
@@ -149,16 +162,18 @@
                         android:id="@+id/split_equal_button"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="@dimen/button_height"
                         android:layout_weight="1"
+                        android:fontFamily="@font/space_grotesk"
                         android:text="@string/split_equal" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/split_custom_button"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="@dimen/button_height"
                         android:layout_weight="1"
+                        android:fontFamily="@font/space_grotesk"
                         android:text="@string/split_custom" />
                 </com.google.android.material.button.MaterialButtonToggleGroup>
 
@@ -167,6 +182,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_sm"
+                    android:fontFamily="@font/space_grotesk"
                     android:textColor="@color/color_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
@@ -183,6 +199,7 @@
                         android:id="@+id/unassigned_amount_text"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_grotesk"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="13sp"
                         android:textStyle="bold" />
@@ -216,6 +233,7 @@
                         android:layout_width="0dp"
                         android:layout_height="@dimen/button_height"
                         android:layout_weight="1"
+                        android:fontFamily="@font/space_grotesk"
                         android:text="@string/save_expense"
                         app:cornerRadius="@dimen/control_corner_radius" />
 
