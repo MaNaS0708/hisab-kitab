@@ -73,17 +73,30 @@ abstract class BaseAuthFragment : Fragment() {
 
     protected fun hideKeyboard(view: View) {
         val inputMethodManager =
-            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
         inputMethodManager.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
+    protected fun safeNavigate(actionId: Int, destinationId: Int? = null) {
+        if (!isAdded || isDetached || view == null) return
+        try {
+            val navController = findNavController()
+            val currentDestId = navController.currentDestination?.id
+            if (destinationId != null && currentDestId == destinationId) {
+                return
+            }
+            navController.navigate(actionId)
+        } catch (_: Exception) {
+            // Guard against in-flight navigation races
+        }
+    }
+
     private fun handleEvent(event: AuthEvent) {
-        val navController = findNavController()
         when (event) {
-            AuthEvent.Login -> navController.navigate(R.id.action_global_login)
-            AuthEvent.UsernameOnboarding -> navController.navigate(R.id.action_global_username_onboarding)
-            AuthEvent.VerifyEmail -> navController.navigate(R.id.action_global_verify_email)
-            AuthEvent.Home -> navController.navigate(R.id.action_global_home)
+            AuthEvent.Login -> safeNavigate(R.id.action_global_login, R.id.loginFragment)
+            AuthEvent.UsernameOnboarding -> safeNavigate(R.id.action_global_username_onboarding, R.id.usernameOnboardingFragment)
+            AuthEvent.VerifyEmail -> safeNavigate(R.id.action_global_verify_email, R.id.verifyEmailFragment)
+            AuthEvent.Home -> safeNavigate(R.id.action_global_home, R.id.homeFragment)
         }
     }
 }

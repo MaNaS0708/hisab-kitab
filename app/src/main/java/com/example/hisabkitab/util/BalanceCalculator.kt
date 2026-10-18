@@ -77,7 +77,7 @@ object BalanceCalculator {
             if (net > 0) {
                 totalOwed += net
             } else if (net < 0) {
-                totalOwes += Math.abs(net)
+                totalOwes += if (net == Long.MIN_VALUE) Long.MAX_VALUE else Math.abs(net)
             }
         }
 

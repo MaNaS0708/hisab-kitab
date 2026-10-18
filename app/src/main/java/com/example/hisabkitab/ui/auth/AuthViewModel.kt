@@ -272,6 +272,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         authRepository.signOut()
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId("")
+        } catch (_: Exception) {
+            // Safe fallback when Firebase is uninitialized (e.g. in unit tests)
+        }
         _state.value = AuthUiState.Idle
         _profileState.value = null
         eventChannel.trySend(AuthEvent.Login)
@@ -286,8 +291,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun routeUserAfterAuth(user: FirebaseUser, name: String? = null) {
-        userRepository.ensureUserDocument(user, name ?: user.displayName)
-        val profile = userRepository.readProfile(user.uid)
+        val profile = userRepository.ensureUserDocument(user, name ?: user.displayName)
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setUserId(user.uid)
+        } catch (_: Exception) {
+            // Safe fallback when Firebase is uninitialized (e.g. in unit tests)
+        }
         _state.value = AuthUiState.Idle
         when {
             profile.username.isNullOrBlank() -> {
@@ -324,6 +333,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun setFailure(exception: Throwable) {
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(exception)
+        } catch (_: Exception) {
+            // Safe fallback when Firebase is uninitialized (e.g. in unit tests)
+        }
         _state.value = AuthUiState.Error(
             errorMapper.message(exception),
             retryable = isNetworkFailure(exception)

@@ -84,9 +84,19 @@ class GroupViewModelTest {
         override fun observeGroupActivity(groupId: String): Flow<List<GroupActivity>> =
             getOrCreateActivityFlow(groupId)
 
-        override suspend fun getGroupExpensesOnce(groupId: String): List<Expense> = emptyList()
+        val expensesByGroup = mutableMapOf<String, List<Expense>>()
+        val settlementsByGroup = mutableMapOf<String, List<Settlement>>()
+        val groupIdsThrowingError = mutableSetOf<String>()
 
-        override suspend fun getGroupSettlementsOnce(groupId: String): List<Settlement> = emptyList()
+        override suspend fun getGroupExpensesOnce(groupId: String): List<Expense> {
+            if (groupId in groupIdsThrowingError) {
+                throw RuntimeException("Firestore read failed for $groupId")
+            }
+            return expensesByGroup[groupId] ?: emptyList()
+        }
+
+        override suspend fun getGroupSettlementsOnce(groupId: String): List<Settlement> =
+            settlementsByGroup[groupId] ?: emptyList()
 
         override suspend fun addExpense(groupId: String, expense: Expense, actorName: String) {
             addedExpense = expense
@@ -344,5 +354,99 @@ class GroupViewModelTest {
         assertTrue(added != null)
         assertEquals(listOf("user1", "user2"), added!!.participantIds)
         assertEquals(mapOf("user1" to 1500L, "user2" to 1500L), added.sharesByUid)
+    }
+
+    @Test
+    fun testLoadHomeDataLoadsGroupsConcurrentlyAndComputesBalances() = testScope.runTest {
+        val fakeAuth = FakeAuthRepository("user1")
+        val fakeUser = FakeUserRepository(testUser)
+        val fakeGroup = FakeGroupRepository()
+
+        val viewModel = GroupViewModel(
+            application = Application(),
+            authRepository = fakeAuth,
+            userRepository = fakeUser,
+            groupRepository = fakeGroup
+        )
+
+        val groupA = Group(id = "groupA", name = "Trip", memberIds = listOf("user1", "user2"))
+        val groupB = Group(id = "groupB", name = "Room", memberIds = listOf("user1", "user3"))
+
+        // user1 paid 2000 in groupA split equally -> user1 is owed 1000
+        fakeGroup.expensesByGroup["groupA"] = listOf(
+            Expense(
+                id = "e1",
+                description = "Fuel",
+                amountPaise = 2000L,
+                paidByUid = "user1",
+                participantIds = listOf("user1", "user2"),
+                splitType = "equal"
+            )
+        )
+        // user3 paid 3000 in groupB split equally -> user1 owes 1500
+        fakeGroup.expensesByGroup["groupB"] = listOf(
+            Expense(
+                id = "e2",
+                description = "Groceries",
+                amountPaise = 3000L,
+                paidByUid = "user3",
+                participantIds = listOf("user1", "user3"),
+                splitType = "equal"
+            )
+        )
+
+        fakeGroup.userGroupsFlow.emit(listOf(groupA, groupB))
+        viewModel.loadHomeData()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.homeState.value is HomeUiState.Content)
+        val content = viewModel.homeState.value as HomeUiState.Content
+        assertEquals(2, content.groups.size)
+        assertEquals(1000L, content.groups.first { it.group.id == "groupA" }.netBalancePaise)
+        assertEquals(-1500L, content.groups.first { it.group.id == "groupB" }.netBalancePaise)
+        assertEquals(1000L, content.totalOwedPaise)
+        assertEquals(1500L, content.totalOwesPaise)
+    }
+
+    @Test
+    fun testLoadHomeDataDegradesGracefullyWhenSingleGroupFails() = testScope.runTest {
+        val fakeAuth = FakeAuthRepository("user1")
+        val fakeUser = FakeUserRepository(testUser)
+        val fakeGroup = FakeGroupRepository()
+
+        val viewModel = GroupViewModel(
+            application = Application(),
+            authRepository = fakeAuth,
+            userRepository = fakeUser,
+            groupRepository = fakeGroup
+        )
+
+        val groupA = Group(id = "groupA", name = "Failing Group", memberIds = listOf("user1", "user2"))
+        val groupB = Group(id = "groupB", name = "Healthy Group", memberIds = listOf("user1", "user3"))
+
+        fakeGroup.groupIdsThrowingError.add("groupA")
+        fakeGroup.expensesByGroup["groupB"] = listOf(
+            Expense(
+                id = "e2",
+                description = "Lunch",
+                amountPaise = 1000L,
+                paidByUid = "user1",
+                participantIds = listOf("user1", "user3"),
+                splitType = "equal"
+            )
+        )
+
+        fakeGroup.userGroupsFlow.emit(listOf(groupA, groupB))
+        viewModel.loadHomeData()
+        advanceUntilIdle()
+
+        // HomeUiState should NOT fail completely when a single group fails
+        assertTrue(viewModel.homeState.value is HomeUiState.Content)
+        val content = viewModel.homeState.value as HomeUiState.Content
+        assertEquals(2, content.groups.size)
+        // Failing group safely defaults to 0
+        assertEquals(0L, content.groups.first { it.group.id == "groupA" }.netBalancePaise)
+        assertEquals(500L, content.groups.first { it.group.id == "groupB" }.netBalancePaise)
+        assertEquals(500L, content.totalOwedPaise)
     }
 }

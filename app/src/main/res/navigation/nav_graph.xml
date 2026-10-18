@@ -8,25 +8,25 @@
         android:id="@+id/action_global_login"
         app:destination="@id/loginFragment"
         app:popUpTo="@id/nav_graph"
-        app:popUpToInclusive="false"
+        app:popUpToInclusive="true"
         app:launchSingleTop="true" />
     <action
         android:id="@+id/action_global_username_onboarding"
         app:destination="@id/usernameOnboardingFragment"
         app:popUpTo="@id/nav_graph"
-        app:popUpToInclusive="false"
+        app:popUpToInclusive="true"
         app:launchSingleTop="true" />
     <action
         android:id="@+id/action_global_verify_email"
         app:destination="@id/verifyEmailFragment"
         app:popUpTo="@id/nav_graph"
-        app:popUpToInclusive="false"
+        app:popUpToInclusive="true"
         app:launchSingleTop="true" />
     <action
         android:id="@+id/action_global_home"
         app:destination="@id/homeFragment"
         app:popUpTo="@id/nav_graph"
-        app:popUpToInclusive="false"
+        app:popUpToInclusive="true"
         app:launchSingleTop="true" />
 
     <fragment

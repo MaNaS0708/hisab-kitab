@@ -4,7 +4,7 @@ import java.util.Locale
 
 object CurrencyUtil {
     fun formatPaiseToInr(paise: Long): String {
-        val absPaise = Math.abs(paise)
+        val absPaise = if (paise == Long.MIN_VALUE) Long.MAX_VALUE else Math.abs(paise)
         val rupees = absPaise / 100
         val remainingPaise = absPaise % 100
         val formatted = String.format(Locale.US, "₹%d.%02d", rupees, remainingPaise)

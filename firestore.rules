@@ -14,10 +14,10 @@ service cloud.firestore {
     }
     function validProfile() {
       return request.resource.data.uid == request.auth.uid &&
-        request.resource.data.email is string &&
-        request.resource.data.provider == 'password' &&
+        (!('email' in request.resource.data) || request.resource.data.email == null || request.resource.data.email is string) &&
+        (!('provider' in request.resource.data) || request.resource.data.provider in ['password', 'phone']) &&
         request.resource.data.keys().hasOnly([
-          'uid', 'name', 'email', 'provider', 'username',
+          'uid', 'name', 'email', 'phone', 'provider', 'username',
           'createdAt', 'updatedAt', 'lastLoginAt'
         ]);
     }
@@ -34,13 +34,13 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isSelf(uid);
+      allow read: if signedIn();
       allow create: if isSelf(uid) && validProfile();
       allow update: if isSelf(uid) && validProfile() &&
         request.resource.data.uid == resource.data.uid &&
-        request.resource.data.provider == resource.data.provider &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        request.resource.data.email == resource.data.email &&
+        (!('provider' in resource.data) || request.resource.data.provider == resource.data.provider) &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+        (!('email' in resource.data) || request.resource.data.email == resource.data.email) &&
         (('username' in resource.data && request.resource.data.username == resource.data.username) ||
           (!('username' in resource.data) &&
             (!('username' in request.resource.data) || request.resource.data.username is string)));

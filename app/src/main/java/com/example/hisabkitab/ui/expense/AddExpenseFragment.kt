@@ -315,26 +315,27 @@ class AddExpenseFragment : Fragment() {
     }
 
     private fun renderOperationState(state: OperationState) {
+        val b = _binding ?: return
         when (state) {
             OperationState.Idle -> {
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.visibility = View.GONE
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.visibility = View.GONE
                 validateForm()
             }
             OperationState.Loading -> {
-                binding.saveExpenseButton.isEnabled = false
-                binding.loadingIndicator.visibility = View.VISIBLE
-                binding.statusMessage.visibility = View.GONE
+                b.saveExpenseButton.isEnabled = false
+                b.loadingIndicator.visibility = View.VISIBLE
+                b.statusMessage.visibility = View.GONE
             }
             is OperationState.Success -> {
-                binding.saveExpenseButton.isEnabled = true
-                binding.loadingIndicator.visibility = View.GONE
-                findNavController().popBackStack()
+                b.saveExpenseButton.isEnabled = true
+                b.loadingIndicator.visibility = View.GONE
+                if (isAdded) findNavController().popBackStack()
             }
             is OperationState.Error -> {
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.text = state.message
-                binding.statusMessage.visibility = View.VISIBLE
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.text = state.message
+                b.statusMessage.visibility = View.VISIBLE
                 validateForm()
             }
         }

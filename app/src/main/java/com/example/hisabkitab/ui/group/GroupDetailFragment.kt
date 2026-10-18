@@ -47,13 +47,17 @@ class GroupDetailFragment : Fragment() {
         binding.activityRecycler.layoutManager = LinearLayoutManager(requireContext())
 
         binding.addExpenseButton.setOnClickListener {
-            val bundle = Bundle().apply { putString("groupId", groupId) }
-            findNavController().navigate(R.id.action_group_detail_to_add_expense, bundle)
+            if (isAdded && findNavController().currentDestination?.id == R.id.groupDetailFragment) {
+                val bundle = Bundle().apply { putString("groupId", groupId) }
+                findNavController().navigate(R.id.action_group_detail_to_add_expense, bundle)
+            }
         }
 
         binding.settleUpButton.setOnClickListener {
-            val bundle = Bundle().apply { putString("groupId", groupId) }
-            findNavController().navigate(R.id.action_group_detail_to_settle_up, bundle)
+            if (isAdded && findNavController().currentDestination?.id == R.id.groupDetailFragment) {
+                val bundle = Bundle().apply { putString("groupId", groupId) }
+                findNavController().navigate(R.id.action_group_detail_to_settle_up, bundle)
+            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -68,49 +72,51 @@ class GroupDetailFragment : Fragment() {
     }
 
     private fun renderDetailState(state: GroupDetailUiState) {
+        val b = _binding ?: return
+        val ctx = context ?: return
         when (state) {
             GroupDetailUiState.Loading -> {
-                binding.loadingIndicator.visibility = View.VISIBLE
-                binding.statusMessage.visibility = View.GONE
+                b.loadingIndicator.visibility = View.VISIBLE
+                b.statusMessage.visibility = View.GONE
             }
             is GroupDetailUiState.Content -> {
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.visibility = View.GONE
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.visibility = View.GONE
 
-                binding.groupName.text = state.group.name
+                b.groupName.text = state.group.name
 
                 val net = state.userNetBalancePaise
-                val context = requireContext()
                 when {
                     net > 0 -> {
-                        binding.userGroupStatus.text = getString(R.string.group_detail_owed, CurrencyUtil.formatPaiseToInr(net))
-                        binding.userGroupStatus.setTextColor(context.getColor(R.color.color_primary))
+                        b.userGroupStatus.text = getString(R.string.group_detail_owed, CurrencyUtil.formatPaiseToInr(net))
+                        b.userGroupStatus.setTextColor(ctx.getColor(R.color.color_primary))
                     }
                     net < 0 -> {
-                        binding.userGroupStatus.text = getString(R.string.group_detail_owe, CurrencyUtil.formatPaiseToInr(Math.abs(net)))
-                        binding.userGroupStatus.setTextColor(context.getColor(R.color.color_error))
+                        val absPaise = if (net == Long.MIN_VALUE) Long.MAX_VALUE else Math.abs(net)
+                        b.userGroupStatus.text = getString(R.string.group_detail_owe, CurrencyUtil.formatPaiseToInr(absPaise))
+                        b.userGroupStatus.setTextColor(ctx.getColor(R.color.color_error))
                     }
                     else -> {
-                        binding.userGroupStatus.text = getString(R.string.group_detail_settled)
-                        binding.userGroupStatus.setTextColor(context.getColor(R.color.color_secondary))
+                        b.userGroupStatus.text = getString(R.string.group_detail_settled)
+                        b.userGroupStatus.setTextColor(ctx.getColor(R.color.color_secondary))
                     }
                 }
 
-                binding.membersRecycler.adapter = MembersAdapter(state.membersWithBalance)
+                b.membersRecycler.adapter = MembersAdapter(state.membersWithBalance)
 
                 if (state.activities.isEmpty()) {
-                    binding.emptyActivityView.visibility = View.VISIBLE
-                    binding.activityRecycler.visibility = View.GONE
+                    b.emptyActivityView.visibility = View.VISIBLE
+                    b.activityRecycler.visibility = View.GONE
                 } else {
-                    binding.emptyActivityView.visibility = View.GONE
-                    binding.activityRecycler.visibility = View.VISIBLE
-                    binding.activityRecycler.adapter = ActivityAdapter(state.activities)
+                    b.emptyActivityView.visibility = View.GONE
+                    b.activityRecycler.visibility = View.VISIBLE
+                    b.activityRecycler.adapter = ActivityAdapter(state.activities)
                 }
             }
             is GroupDetailUiState.Error -> {
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.text = state.message
-                binding.statusMessage.visibility = View.VISIBLE
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.text = state.message
+                b.statusMessage.visibility = View.VISIBLE
             }
         }
     }

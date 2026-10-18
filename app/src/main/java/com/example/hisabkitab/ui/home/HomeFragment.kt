@@ -37,24 +37,40 @@ class HomeFragment : BaseAuthFragment() {
         return binding.root
     }
 
+    private var groupsAdapter: GroupsAdapter? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        groupsAdapter = GroupsAdapter { item ->
+            if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
+                val bundle = Bundle().apply {
+                    putString("groupId", item.group.id)
+                }
+                findNavController().navigate(R.id.action_home_to_group_detail, bundle)
+            }
+        }
         binding.groupsRecycler.layoutManager = LinearLayoutManager(requireContext())
+        binding.groupsRecycler.adapter = groupsAdapter
 
-        binding.logoutButton.setOnClickListener { authViewModel.logout() }
+        binding.logoutButton.setOnClickListener {
+            if (isAdded) authViewModel.logout()
+        }
         binding.retryButton.setOnClickListener { groupViewModel.loadHomeData() }
 
         val navigateToCreateGroup = {
-            findNavController().navigate(R.id.action_home_to_create_group)
+            if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
+                findNavController().navigate(R.id.action_home_to_create_group)
+            }
         }
         binding.createGroupFab.setOnClickListener { navigateToCreateGroup() }
         binding.createGroupButton.setOnClickListener { navigateToCreateGroup() }
         binding.createFirstGroupButton.setOnClickListener { navigateToCreateGroup() }
 
         observeAuthState { state ->
-            binding.logoutButton.isEnabled = state !is AuthUiState.Loading
-            binding.logoutLoading.visibility =
+            val b = _binding ?: return@observeAuthState
+            b.logoutButton.isEnabled = state !is AuthUiState.Loading
+            b.logoutLoading.visibility =
                 if (state is AuthUiState.Loading) View.VISIBLE else View.GONE
         }
 
@@ -68,65 +84,69 @@ class HomeFragment : BaseAuthFragment() {
     }
 
     private fun renderHomeState(state: HomeUiState) {
+        val b = _binding ?: return
+        val ctx = context ?: return
         when (state) {
             HomeUiState.Loading -> {
-                binding.profileContent.visibility = View.GONE
-                binding.groupsLoadingIndicator.visibility = View.VISIBLE
-                binding.errorLayout.visibility = View.GONE
-                binding.emptyGroupsView.visibility = View.GONE
-                binding.groupsRecycler.visibility = View.GONE
-                binding.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(0L)
-                binding.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(0L)
+                b.profileContent.visibility = View.GONE
+                b.groupsLoadingIndicator.visibility = View.VISIBLE
+                b.errorLayout.visibility = View.GONE
+                b.emptyGroupsView.visibility = View.GONE
+                b.groupsRecycler.visibility = View.GONE
+                b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(0L)
+                b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(0L)
             }
             is HomeUiState.Content -> {
-                binding.profileContent.visibility = View.VISIBLE
-                binding.greeting.text =
+                b.profileContent.visibility = View.VISIBLE
+                b.greeting.text =
                     getString(R.string.home_greeting, state.profile.greetingName)
-                binding.userEmailSubtitle.text =
+                b.userEmailSubtitle.text =
                     state.profile.displayHandle.ifBlank { getString(R.string.signed_in_account) }
 
-                binding.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwedPaise)
-                binding.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwesPaise)
+                b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwedPaise)
+                b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwesPaise)
 
-                binding.groupsLoadingIndicator.visibility = View.GONE
-                binding.errorLayout.visibility = View.GONE
+                b.groupsLoadingIndicator.visibility = View.GONE
+                b.errorLayout.visibility = View.GONE
 
                 if (state.groups.isEmpty()) {
-                    binding.emptyGroupsView.visibility = View.VISIBLE
-                    binding.groupsRecycler.visibility = View.GONE
+                    b.emptyGroupsView.visibility = View.VISIBLE
+                    b.groupsRecycler.visibility = View.GONE
                 } else {
-                    binding.emptyGroupsView.visibility = View.GONE
-                    binding.groupsRecycler.visibility = View.VISIBLE
-                    binding.groupsRecycler.adapter = GroupsAdapter(state.groups) { item ->
-                        val bundle = Bundle().apply {
-                            putString("groupId", item.group.id)
-                        }
-                        findNavController().navigate(R.id.action_home_to_group_detail, bundle)
-                    }
+                    b.emptyGroupsView.visibility = View.GONE
+                    b.groupsRecycler.visibility = View.VISIBLE
+                    groupsAdapter?.submitList(state.groups)
                 }
             }
             is HomeUiState.Error -> {
-                binding.profileContent.visibility = View.GONE
-                binding.groupsLoadingIndicator.visibility = View.GONE
-                binding.emptyGroupsView.visibility = View.GONE
-                binding.groupsRecycler.visibility = View.GONE
+                b.profileContent.visibility = View.GONE
+                b.groupsLoadingIndicator.visibility = View.GONE
+                b.emptyGroupsView.visibility = View.GONE
+                b.groupsRecycler.visibility = View.GONE
 
-                binding.statusMessage.text = state.message
-                binding.retryButton.visibility = if (state.retryable) View.VISIBLE else View.GONE
-                binding.errorLayout.visibility = View.VISIBLE
+                b.statusMessage.text = state.message
+                b.retryButton.visibility = if (state.retryable) View.VISIBLE else View.GONE
+                b.errorLayout.visibility = View.VISIBLE
             }
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        groupsAdapter = null
         _binding = null
     }
 
     private class GroupsAdapter(
-        private val groups: List<GroupWithBalance>,
         private val onGroupClick: (GroupWithBalance) -> Unit
     ) : RecyclerView.Adapter<GroupsAdapter.GroupViewHolder>() {
+
+        private var groups: List<GroupWithBalance> = emptyList()
+
+        fun submitList(newGroups: List<GroupWithBalance>) {
+            groups = newGroups
+            notifyDataSetChanged()
+        }
 
         class GroupViewHolder(val binding: ItemGroupBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -152,9 +172,10 @@ class HomeFragment : BaseAuthFragment() {
                         groupNetBalance.setTextColor(context.getColor(R.color.color_primary))
                     }
                     item.netBalancePaise < 0 -> {
+                        val absPaise = if (item.netBalancePaise == Long.MIN_VALUE) Long.MAX_VALUE else Math.abs(item.netBalancePaise)
                         groupNetBalance.text = context.getString(
                             R.string.group_balance_owe,
-                            CurrencyUtil.formatPaiseToInr(Math.abs(item.netBalancePaise))
+                            CurrencyUtil.formatPaiseToInr(absPaise)
                         )
                         groupNetBalance.setTextColor(context.getColor(R.color.color_error))
                     }

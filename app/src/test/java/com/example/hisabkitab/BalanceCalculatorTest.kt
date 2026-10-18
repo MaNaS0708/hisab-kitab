@@ -219,4 +219,17 @@ class BalanceCalculatorTest {
         assertEquals(20000L, summary.userOwedPaise)
         assertEquals(50000L, summary.userOwesPaise)
     }
+
+    @Test
+    fun testOverallSummaryCalculationWithBoundaryValues() {
+        val g1 = mapOf("my_uid" to Long.MAX_VALUE)
+        val summaryPositive = BalanceCalculator.calculateOverallSummary(listOf(g1), "my_uid")
+        assertEquals(Long.MAX_VALUE, summaryPositive.userOwedPaise)
+        assertEquals(0L, summaryPositive.userOwesPaise)
+
+        val g2 = mapOf("my_uid" to -100L)
+        val summaryNegative = BalanceCalculator.calculateOverallSummary(listOf(g2), "my_uid")
+        assertEquals(0L, summaryNegative.userOwedPaise)
+        assertEquals(100L, summaryNegative.userOwesPaise)
+    }
 }

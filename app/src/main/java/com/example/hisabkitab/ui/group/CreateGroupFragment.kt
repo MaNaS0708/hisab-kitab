@@ -129,27 +129,28 @@ class CreateGroupFragment : Fragment() {
     }
 
     private fun renderOperationState(state: OperationState) {
+        val b = _binding ?: return
         when (state) {
             OperationState.Idle -> {
-                binding.createGroupButton.isEnabled = true
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.visibility = View.GONE
+                b.createGroupButton.isEnabled = true
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.visibility = View.GONE
             }
             OperationState.Loading -> {
-                binding.createGroupButton.isEnabled = false
-                binding.loadingIndicator.visibility = View.VISIBLE
-                binding.statusMessage.visibility = View.GONE
+                b.createGroupButton.isEnabled = false
+                b.loadingIndicator.visibility = View.VISIBLE
+                b.statusMessage.visibility = View.GONE
             }
             is OperationState.Success -> {
-                binding.createGroupButton.isEnabled = true
-                binding.loadingIndicator.visibility = View.GONE
-                findNavController().popBackStack()
+                b.createGroupButton.isEnabled = true
+                b.loadingIndicator.visibility = View.GONE
+                if (isAdded) findNavController().popBackStack()
             }
             is OperationState.Error -> {
-                binding.createGroupButton.isEnabled = true
-                binding.loadingIndicator.visibility = View.GONE
-                binding.statusMessage.text = state.message
-                binding.statusMessage.visibility = View.VISIBLE
+                b.createGroupButton.isEnabled = true
+                b.loadingIndicator.visibility = View.GONE
+                b.statusMessage.text = state.message
+                b.statusMessage.visibility = View.VISIBLE
             }
         }
     }

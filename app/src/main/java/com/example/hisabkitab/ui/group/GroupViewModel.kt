@@ -18,6 +18,9 @@ import com.example.hisabkitab.util.SplitCalculator
 import com.example.hisabkitab.util.UsernameUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,18 +128,37 @@ open class GroupViewModel(
                 val profile = userRepository.readProfile(currentUid)
 
                 groupRepository.observeUserGroups(profile.uid).collect { groups ->
-                    val groupWithBalances = mutableListOf<GroupWithBalance>()
-                    val allGroupBalances = mutableListOf<Map<String, Long>>()
+                    if (groups.isEmpty()) {
+                        _homeState.value = HomeUiState.Content(
+                            profile = profile,
+                            groups = emptyList(),
+                            totalOwedPaise = 0L,
+                            totalOwesPaise = 0L
+                        )
+                        return@collect
+                    }
 
-                    for (group in groups) {
-                        val expenses = groupRepository.getGroupExpensesOnce(group.id)
-                        val settlements = groupRepository.getGroupSettlementsOnce(group.id)
-                        val validExpenses = expenses.filter { SplitCalculator.isValidExpense(it) }
-                        val balanceMap = BalanceCalculator.calculateGroupBalances(validExpenses, settlements)
-
-                        allGroupBalances.add(balanceMap)
-                        val userNet = balanceMap.getOrDefault(profile.uid, 0L)
-                        groupWithBalances.add(GroupWithBalance(group, userNet))
+                    val (groupWithBalances, allGroupBalances) = coroutineScope {
+                        val deferreds = groups.map { group ->
+                            async {
+                                try {
+                                    val expenses = groupRepository.getGroupExpensesOnce(group.id)
+                                    val settlements = groupRepository.getGroupSettlementsOnce(group.id)
+                                    val validExpenses = expenses.filter { SplitCalculator.isValidExpense(it) }
+                                    val balanceMap = BalanceCalculator.calculateGroupBalances(validExpenses, settlements)
+                                    val userNet = balanceMap.getOrDefault(profile.uid, 0L)
+                                    GroupWithBalance(group, userNet) to balanceMap
+                                } catch (e: Exception) {
+                                    if (e is CancellationException) throw e
+                                    try {
+                                        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
+                                    } catch (_: Exception) {}
+                                    GroupWithBalance(group, 0L) to emptyMap<String, Long>()
+                                }
+                            }
+                        }
+                        val results = deferreds.awaitAll()
+                        results.map { it.first } to results.map { it.second }
                     }
 
                     val summary = BalanceCalculator.calculateOverallSummary(allGroupBalances, profile.uid)
@@ -150,6 +172,9 @@ open class GroupViewModel(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
+                try {
+                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
+                } catch (_: Exception) {}
                 _homeState.value = HomeUiState.Error(
                     e.message ?: "Failed to load groups.",
                     retryable = true

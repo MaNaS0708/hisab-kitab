@@ -25,13 +25,15 @@ open class UserRepository(
             if (!snapshot.exists()) {
                 val initialData = mutableMapOf<String, Any?>(
                     "uid" to user.uid,
-                    "name" to name,
                     "email" to user.email,
                     "provider" to "password",
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp(),
                     "lastLoginAt" to FieldValue.serverTimestamp()
                 )
+                if (!name.isNullOrBlank()) {
+                    initialData["name"] = name
+                }
                 transaction.set(document, initialData)
             } else {
                 val updates = mutableMapOf<String, Any?>(
@@ -43,6 +45,12 @@ open class UserRepository(
                 }
                 if (snapshot.getString("name").isNullOrBlank() && !name.isNullOrBlank()) {
                     updates["name"] = name
+                }
+                if (!snapshot.contains("createdAt")) {
+                    updates["createdAt"] = FieldValue.serverTimestamp()
+                }
+                if (!snapshot.contains("provider")) {
+                    updates["provider"] = "password"
                 }
                 transaction.update(document, updates)
             }
