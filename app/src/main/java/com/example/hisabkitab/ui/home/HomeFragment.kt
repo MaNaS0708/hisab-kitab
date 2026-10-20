@@ -19,6 +19,7 @@ import com.example.hisabkitab.ui.auth.BaseAuthFragment
 import com.example.hisabkitab.ui.group.GroupViewModel
 import com.example.hisabkitab.ui.group.GroupWithBalance
 import com.example.hisabkitab.ui.group.HomeUiState
+import com.example.hisabkitab.util.AppLog
 import com.example.hisabkitab.util.CurrencyUtil
 import kotlinx.coroutines.launch
 
@@ -27,112 +28,134 @@ class HomeFragment : BaseAuthFragment() {
     private val binding get() = checkNotNull(_binding)
 
     private val groupViewModel: GroupViewModel by activityViewModels()
+    private var groupsAdapter: GroupsAdapter? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        AppLog.d("HomeFragment", "onCreateView")
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         return binding.root
     }
 
-    private var groupsAdapter: GroupsAdapter? = null
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        AppLog.d("HomeFragment", "onViewCreated")
 
-        groupsAdapter = GroupsAdapter { item ->
-            if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
-                val bundle = Bundle().apply {
-                    putString("groupId", item.group.id)
+        try {
+            groupsAdapter = GroupsAdapter { item ->
+                AppLog.i("HomeFragment", "Group clicked id=${item.group.id}, name=${item.group.name}")
+                if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
+                    val bundle = Bundle().apply {
+                        putString("groupId", item.group.id)
+                    }
+                    findNavController().navigate(R.id.action_home_to_group_detail, bundle)
                 }
-                findNavController().navigate(R.id.action_home_to_group_detail, bundle)
             }
-        }
-        binding.groupsRecycler.layoutManager = LinearLayoutManager(requireContext())
-        binding.groupsRecycler.adapter = groupsAdapter
+            binding.groupsRecycler.layoutManager = LinearLayoutManager(requireContext())
+            binding.groupsRecycler.adapter = groupsAdapter
 
-        binding.logoutButton.setOnClickListener {
-            if (isAdded) authViewModel.logout()
-        }
-        binding.retryButton.setOnClickListener { groupViewModel.loadHomeData() }
-
-        val navigateToCreateGroup = {
-            if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
-                findNavController().navigate(R.id.action_home_to_create_group)
+            binding.logoutButton.setOnClickListener {
+                AppLog.i("HomeFragment", "Logout clicked")
+                if (isAdded) authViewModel.logout()
             }
-        }
-        binding.createGroupFab.setOnClickListener { navigateToCreateGroup() }
-        binding.createGroupButton.setOnClickListener { navigateToCreateGroup() }
-        binding.createFirstGroupButton.setOnClickListener { navigateToCreateGroup() }
-
-        observeAuthState { state ->
-            val b = _binding ?: return@observeAuthState
-            b.logoutButton.isEnabled = state !is AuthUiState.Loading
-            b.logoutLoading.visibility =
-                if (state is AuthUiState.Loading) View.VISIBLE else View.GONE
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                groupViewModel.homeState.collect(::renderHomeState)
+            binding.retryButton.setOnClickListener {
+                AppLog.i("HomeFragment", "Retry clicked -> groupViewModel.loadHomeData()")
+                groupViewModel.loadHomeData()
             }
-        }
 
-        groupViewModel.loadHomeData()
+            val navigateToCreateGroup = {
+                AppLog.i("HomeFragment", "Create Group requested")
+                if (isAdded && findNavController().currentDestination?.id == R.id.homeFragment) {
+                    findNavController().navigate(R.id.action_home_to_create_group)
+                }
+            }
+            binding.createGroupFab.setOnClickListener { navigateToCreateGroup() }
+            binding.createGroupButton.setOnClickListener { navigateToCreateGroup() }
+            binding.createFirstGroupButton.setOnClickListener { navigateToCreateGroup() }
+
+            observeAuthState { state ->
+                val b = _binding ?: return@observeAuthState
+                b.logoutButton.isEnabled = state !is AuthUiState.Loading
+                b.logoutLoading.visibility =
+                    if (state is AuthUiState.Loading) View.VISIBLE else View.GONE
+            }
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    groupViewModel.homeState.collect(::renderHomeState)
+                }
+            }
+
+            AppLog.i("HomeFragment", "Triggering groupViewModel.loadHomeData()")
+            groupViewModel.loadHomeData()
+        } catch (e: Exception) {
+            AppLog.e("HomeFragment", "Exception during HomeFragment onViewCreated setup", e)
+        }
     }
 
     private fun renderHomeState(state: HomeUiState) {
         val b = _binding ?: return
         val ctx = context ?: return
-        when (state) {
-            HomeUiState.Loading -> {
-                b.profileContent.visibility = View.GONE
-                b.groupsLoadingIndicator.visibility = View.VISIBLE
-                b.errorLayout.visibility = View.GONE
-                b.emptyGroupsView.visibility = View.GONE
-                b.groupsRecycler.visibility = View.GONE
-                b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(0L)
-                b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(0L)
-            }
-            is HomeUiState.Content -> {
-                b.profileContent.visibility = View.VISIBLE
-                b.greeting.text =
-                    getString(R.string.home_greeting, state.profile.greetingName)
-                b.userEmailSubtitle.text =
-                    state.profile.displayHandle.ifBlank { getString(R.string.signed_in_account) }
+        AppLog.d("HomeFragment", "renderHomeState called with ${state.javaClass.simpleName}")
 
-                b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwedPaise)
-                b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwesPaise)
-
-                b.groupsLoadingIndicator.visibility = View.GONE
-                b.errorLayout.visibility = View.GONE
-
-                if (state.groups.isEmpty()) {
-                    b.emptyGroupsView.visibility = View.VISIBLE
-                    b.groupsRecycler.visibility = View.GONE
-                } else {
+        try {
+            when (state) {
+                HomeUiState.Loading -> {
+                    b.profileContent.visibility = View.GONE
+                    b.groupsLoadingIndicator.visibility = View.VISIBLE
+                    b.errorLayout.visibility = View.GONE
                     b.emptyGroupsView.visibility = View.GONE
-                    b.groupsRecycler.visibility = View.VISIBLE
-                    groupsAdapter?.submitList(state.groups)
+                    b.groupsRecycler.visibility = View.GONE
+                    b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(0L)
+                    b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(0L)
+                }
+                is HomeUiState.Content -> {
+                    b.profileContent.visibility = View.VISIBLE
+                    b.greeting.text =
+                        getString(R.string.home_greeting, state.profile.greetingName)
+                    b.userEmailSubtitle.text =
+                        state.profile.displayHandle.ifBlank { getString(R.string.signed_in_account) }
+
+                    b.totalOwedAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwedPaise)
+                    b.totalOwesAmount.text = CurrencyUtil.formatPaiseToInr(state.totalOwesPaise)
+
+                    b.groupsLoadingIndicator.visibility = View.GONE
+                    b.errorLayout.visibility = View.GONE
+
+                    if (state.groups.isEmpty()) {
+                        AppLog.i("HomeFragment", "Groups list is empty -> showing emptyGroupsView")
+                        b.emptyGroupsView.visibility = View.VISIBLE
+                        b.groupsRecycler.visibility = View.GONE
+                    } else {
+                        AppLog.i("HomeFragment", "Displaying ${state.groups.size} groups")
+                        b.emptyGroupsView.visibility = View.GONE
+                        b.groupsRecycler.visibility = View.VISIBLE
+                        groupsAdapter?.submitList(state.groups)
+                    }
+                }
+                is HomeUiState.Error -> {
+                    AppLog.w("HomeFragment", "HomeUiState Error: ${state.message}")
+                    b.profileContent.visibility = View.GONE
+                    b.groupsLoadingIndicator.visibility = View.GONE
+                    b.emptyGroupsView.visibility = View.GONE
+                    b.groupsRecycler.visibility = View.GONE
+
+                    b.statusMessage.text = state.message
+                    b.retryButton.visibility = if (state.retryable) View.VISIBLE else View.GONE
+                    b.errorLayout.visibility = View.VISIBLE
                 }
             }
-            is HomeUiState.Error -> {
-                b.profileContent.visibility = View.GONE
-                b.groupsLoadingIndicator.visibility = View.GONE
-                b.emptyGroupsView.visibility = View.GONE
-                b.groupsRecycler.visibility = View.GONE
-
-                b.statusMessage.text = state.message
-                b.retryButton.visibility = if (state.retryable) View.VISIBLE else View.GONE
-                b.errorLayout.visibility = View.VISIBLE
-            }
+        } catch (e: Exception) {
+            AppLog.e("HomeFragment", "Exception rendering Home state", e)
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        AppLog.d("HomeFragment", "onDestroyView")
         groupsAdapter = null
         _binding = null
     }

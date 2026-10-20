@@ -68,7 +68,7 @@ sealed interface OperationState {
     data class Error(val message: String) : OperationState
 }
 
-open class GroupViewModel(
+open class GroupViewModel @JvmOverloads constructor(
     application: Application,
     private val authRepository: AuthRepository = AuthRepository(),
     private val userRepository: UserRepository = UserRepository(),

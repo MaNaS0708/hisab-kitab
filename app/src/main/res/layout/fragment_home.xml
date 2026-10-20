@@ -130,7 +130,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_lg"
                 android:fontFamily="@font/space_grotesk"
-                android:text="Overview"
+                android:text="@string/overview"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="14sp"
                 android:textStyle="bold"

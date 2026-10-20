@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.hisabkitab.R
+import com.example.hisabkitab.util.AppLog
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 
@@ -78,20 +79,27 @@ abstract class BaseAuthFragment : Fragment() {
     }
 
     protected fun safeNavigate(actionId: Int, destinationId: Int? = null) {
-        if (!isAdded || isDetached || view == null) return
+        if (!isAdded || isDetached || view == null) {
+            AppLog.w("BaseAuthFragment", "safeNavigate skipped: Fragment is not added or view is null")
+            return
+        }
         try {
             val navController = findNavController()
             val currentDestId = navController.currentDestination?.id
+            AppLog.i("BaseAuthFragment", "safeNavigate requested to action $actionId, currentDestId=$currentDestId, expectedDestId=$destinationId")
             if (destinationId != null && currentDestId == destinationId) {
+                AppLog.d("BaseAuthFragment", "Already at target destination $destinationId, skipping navigate")
                 return
             }
             navController.navigate(actionId)
-        } catch (_: Exception) {
-            // Guard against in-flight navigation races
+            AppLog.i("BaseAuthFragment", "safeNavigate successfully triggered action $actionId")
+        } catch (e: Exception) {
+            AppLog.w("BaseAuthFragment", "safeNavigate exception during navigate for action $actionId", e)
         }
     }
 
     private fun handleEvent(event: AuthEvent) {
+        AppLog.i("BaseAuthFragment", "handleEvent received AuthEvent: ${event.javaClass.simpleName}")
         when (event) {
             AuthEvent.Login -> safeNavigate(R.id.action_global_login, R.id.loginFragment)
             AuthEvent.UsernameOnboarding -> safeNavigate(R.id.action_global_username_onboarding, R.id.usernameOnboardingFragment)
